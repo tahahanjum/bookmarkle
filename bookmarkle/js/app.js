@@ -1605,7 +1605,11 @@
       '<div class="row"><div class="row-text">' +
       '<div class="row-title">Bookmarkle ' + esc(window.UpdateCheck ? UpdateCheck.currentVersion() : '') + '</div>' +
       '<div class="row-sub" id="ver-status">Checks GitHub once a day for a newer version.</div></div>' +
+      '<button class="btn btn-sm" id="ver-get" style="display:none">Download update</button>' +
       '<button class="btn btn-sm" id="ver-check">Check now</button></div>' +
+      '<div class="row"><div class="row-text"><div class="row-title">Project page</div>' +
+      '<div class="row-sub">Source code, releases and how to update.</div></div>' +
+      '<button class="btn btn-sm" id="ver-repo">Open GitHub</button></div>' +
       '</div>' +
       '<div class="group"><div class="group-title">Report a problem</div>' +
       '<div class="row"><div class="row-text">' +
@@ -1700,8 +1704,21 @@
       });
     });
 
+    var verRepo = $('#ver-repo', host);
+    if (verRepo) { verRepo.addEventListener('click', openRepo); }
+
+    var verGet = $('#ver-get', host);
+    if (verGet) { verGet.addEventListener('click', openRepo); }
+
     var verCheck = $('#ver-check', host);
     if (verCheck) {
+      UpdateCheck.check(false).then(function (info) {
+        if (info.latest && UpdateCheck.compare(info.latest, info.current) > 0) {
+          $('#ver-status', host).textContent = 'Version ' + info.latest + ' is available.';
+          if (verGet) { verGet.style.display = ''; verGet.classList.add('btn-primary'); }
+        }
+      });
+
       verCheck.addEventListener('click', function () {
         var status = $('#ver-status', host);
         verCheck.disabled = true;
@@ -1712,9 +1729,11 @@
             status.textContent = 'Could not reach GitHub (' + info.error + ').';
           } else if (info.latest && UpdateCheck.compare(info.latest, info.current) > 0) {
             status.textContent = 'Version ' + info.latest + ' is available.';
+            if (verGet) { verGet.style.display = ''; verGet.classList.add('btn-primary'); }
             toast('Update available: ' + info.latest);
           } else {
             status.textContent = 'You are on the latest version.';
+            if (verGet) { verGet.style.display = 'none'; }
           }
         });
       });
@@ -1872,15 +1891,27 @@
     });
   }
 
+  function openRepo() {
+    var url = UpdateCheck.REPO_URL;
+    try {
+      if (chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: url });
+        return;
+      }
+    } catch (e) {  }
+    window.open(url, '_blank', 'noopener');
+  }
+
   function showUpdateBanner(info) {
     var el = $('#update-banner');
     if (!el) { return; }
+    $('#ub-title').textContent = 'Update available - version ' + info.latest;
     $('#ub-sub').textContent =
-      'Version ' + info.latest + ' is out. You are on ' + info.current + '.';
+      'You are on ' + info.current + '. Open the repo to download the new version.';
     el.classList.add('open');
 
     $('#ub-get').addEventListener('click', function () {
-      window.open(UpdateCheck.REPO_URL, '_blank', 'noopener');
+      openRepo();
       UpdateCheck.dismiss(info.latest);
       el.classList.remove('open');
     });
