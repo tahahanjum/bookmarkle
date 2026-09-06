@@ -1592,6 +1592,12 @@
     }
 
     return '<h1>Support</h1><div class="settings-rule"></div>' +
+      '<div class="group"><div class="group-title">Version</div>' +
+      '<div class="row"><div class="row-text">' +
+      '<div class="row-title">Bookmarkle ' + esc(window.UpdateCheck ? UpdateCheck.currentVersion() : '') + '</div>' +
+      '<div class="row-sub" id="ver-status">Checks GitHub once a day for a newer version.</div></div>' +
+      '<button class="btn btn-sm" id="ver-check">Check now</button></div>' +
+      '</div>' +
       '<div class="group"><div class="group-title">Report a problem</div>' +
       '<div class="row"><div class="row-text">' +
       '<div class="row-title">Found a bug, or something not working?</div>' +
@@ -1684,6 +1690,26 @@
         }
       });
     });
+
+    var verCheck = $('#ver-check', host);
+    if (verCheck) {
+      verCheck.addEventListener('click', function () {
+        var status = $('#ver-status', host);
+        verCheck.disabled = true;
+        status.textContent = 'Checking...';
+        UpdateCheck.check(true).then(function (info) {
+          verCheck.disabled = false;
+          if (info.error) {
+            status.textContent = 'Could not reach GitHub (' + info.error + ').';
+          } else if (info.latest && UpdateCheck.compare(info.latest, info.current) > 0) {
+            status.textContent = 'Version ' + info.latest + ' is available.';
+            toast('Update available: ' + info.latest);
+          } else {
+            status.textContent = 'You are on the latest version.';
+          }
+        });
+      });
+    }
 
     var supCopy = $('#sup-copy', host);
     if (supCopy) {
@@ -1837,10 +1863,37 @@
     });
   }
 
+  function showUpdateBanner(info) {
+    var el = $('#update-banner');
+    if (!el) { return; }
+    $('#ub-sub').textContent =
+      'Version ' + info.latest + ' is out. You are on ' + info.current + '.';
+    el.classList.add('open');
+
+    $('#ub-get').addEventListener('click', function () {
+      window.open(UpdateCheck.REPO_URL, '_blank', 'noopener');
+      UpdateCheck.dismiss(info.latest);
+      el.classList.remove('open');
+    });
+    $('#ub-later').addEventListener('click', function () {
+      UpdateCheck.dismiss(info.latest);
+      el.classList.remove('open');
+    });
+  }
+
+  function runUpdateCheck() {
+    if (!window.UpdateCheck) { return; }
+    UpdateCheck.pending().then(function (info) {
+      if (info) { showUpdateBanner(info); }
+    });
+  }
+
   Store.load().then(function () {
     Store.subscribe(render);
     bind();
     $('#btn-rail-toggle').innerHTML = I.svg('grip', 22);
     render();
+
+    setTimeout(runUpdateCheck, 1200);
   });
 })();
