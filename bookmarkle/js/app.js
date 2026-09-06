@@ -459,12 +459,16 @@
   function renderBoard(board, dataCol, filteredLinks) {
     var st = Store.state;
     var el = document.createElement('section');
-    el.className = 'board' + (ui.addingLink === board.id ? ' adding' : '');
+    el.className = 'board' +
+      (ui.addingLink === board.id ? ' adding' : '') +
+      (board.collapsed && !ui.searchTerm ? ' collapsed' : '');
     el.dataset.boardId = board.id;
 
     var head = document.createElement('div');
     head.className = 'board-head';
     head.innerHTML =
+      '<button class="board-collapse" data-act="collapse" title="' +
+      (board.collapsed ? 'Expand board' : 'Collapse board') + '">' + I.svg('chevron', 15) + '</button>' +
       '<div class="board-title">' + esc(board.title) + '</div>' +
       '<div class="board-actions">' +
       '<button class="icon-btn' + (ui.addingLink === board.id ? ' on' : '') +
@@ -472,6 +476,11 @@
       '<button class="icon-btn" data-act="menu" title="Board menu">' + I.svg('dots', 17) + '</button>' +
       '</div>';
     el.appendChild(head);
+
+    head.querySelector('[data-act="collapse"]').addEventListener('click', function (e) {
+      e.stopPropagation();
+      Store.toggleBoardCollapsed(board.id);
+    });
 
     var rule = document.createElement('div');
     rule.className = 'board-rule';

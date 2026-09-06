@@ -256,6 +256,14 @@
     if (hit) { hit.board.title = title; commit(); }
   }
 
+  function toggleBoardCollapsed(boardId) {
+    var hit = findBoard(boardId);
+    if (!hit) { return; }
+    hit.board.collapsed = !hit.board.collapsed;
+    commit();
+    return hit.board.collapsed;
+  }
+
   function deleteBoard(boardId) {
     var hit = findBoard(boardId);
     if (!hit) { return; }
@@ -475,6 +483,7 @@
     movePage: movePage,
     addBoard: addBoard,
     renameBoard: renameBoard,
+    toggleBoardCollapsed: toggleBoardCollapsed,
     deleteBoard: deleteBoard,
     moveBoard: moveBoard,
     moveBoardToPage: moveBoardToPage,
