@@ -1,0 +1,189 @@
+[
+  {
+    "id": "builtin/final-rest",
+    "name": "Final Rest",
+    "file": "wallpapers/final-rest.jpg",
+    "isLight": false,
+    "accent": "#A41929",
+    "board": "#35171B",
+    "opacity": 0.55,
+    "blur": 14,
+    "isDefault": true
+  },
+  {
+    "id": "builtin/midnight-slate",
+    "name": "Midnight Slate",
+    "file": "wallpapers/midnight-slate.png",
+    "isLight": false,
+    "accent": "#6f8cff",
+    "average": "#0f1118"
+  },
+  {
+    "id": "builtin/ember-fall",
+    "name": "Ember Fall",
+    "file": "wallpapers/ember-fall.png",
+    "isLight": false,
+    "accent": "#ff8a45",
+    "average": "#1f0d06"
+  },
+  {
+    "id": "builtin/deep-teal",
+    "name": "Deep Teal",
+    "file": "wallpapers/deep-teal.png",
+    "isLight": false,
+    "accent": "#3fd0d8",
+    "average": "#04171b"
+  },
+  {
+    "id": "builtin/crimson-veil",
+    "name": "Crimson Veil",
+    "file": "wallpapers/crimson-veil.png",
+    "isLight": false,
+    "accent": "#ff5c72",
+    "average": "#20060b"
+  },
+  {
+    "id": "builtin/violet-drift",
+    "name": "Violet Drift",
+    "file": "wallpapers/violet-drift.png",
+    "isLight": false,
+    "accent": "#b083ff",
+    "average": "#150d24"
+  },
+  {
+    "id": "builtin/forest-night",
+    "name": "Forest Night",
+    "file": "wallpapers/forest-night.png",
+    "isLight": false,
+    "accent": "#4ede8f",
+    "average": "#07160e"
+  },
+  {
+    "id": "builtin/cobalt-deep",
+    "name": "Cobalt Deep",
+    "file": "wallpapers/cobalt-deep.png",
+    "isLight": false,
+    "accent": "#5aa9ff",
+    "average": "#061121"
+  },
+  {
+    "id": "builtin/graphite",
+    "name": "Graphite",
+    "file": "wallpapers/graphite.png",
+    "isLight": false,
+    "accent": "#a9b0bd",
+    "average": "#121214"
+  },
+  {
+    "id": "builtin/amber-dusk",
+    "name": "Amber Dusk",
+    "file": "wallpapers/amber-dusk.png",
+    "isLight": false,
+    "accent": "#f0b64a",
+    "average": "#1d1406"
+  },
+  {
+    "id": "builtin/rose-ash",
+    "name": "Rose Ash",
+    "file": "wallpapers/rose-ash.png",
+    "isLight": false,
+    "accent": "#ff7ea6",
+    "average": "#1b0d13"
+  },
+  {
+    "id": "builtin/morning-haze",
+    "name": "Morning Haze",
+    "file": "wallpapers/morning-haze.png",
+    "isLight": true,
+    "accent": "#4a6fb5",
+    "average": "#d9e1ef"
+  },
+  {
+    "id": "builtin/peach-sorbet",
+    "name": "Peach Sorbet",
+    "file": "wallpapers/peach-sorbet.png",
+    "isLight": true,
+    "accent": "#c06a4a",
+    "average": "#f1d7cb"
+  },
+  {
+    "id": "builtin/mint-paper",
+    "name": "Mint Paper",
+    "file": "wallpapers/mint-paper.png",
+    "isLight": true,
+    "accent": "#3f8f63",
+    "average": "#d8e9de"
+  },
+  {
+    "id": "builtin/lilac-mist",
+    "name": "Lilac Mist",
+    "file": "wallpapers/lilac-mist.png",
+    "isLight": true,
+    "accent": "#7a5aa8",
+    "average": "#e2d7ed"
+  },
+  {
+    "id": "builtin/sand-dune",
+    "name": "Sand Dune",
+    "file": "wallpapers/sand-dune.png",
+    "isLight": true,
+    "accent": "#94743a",
+    "average": "#e8dec9"
+  },
+  {
+    "id": "builtin/sky-wash",
+    "name": "Sky Wash",
+    "file": "wallpapers/sky-wash.png",
+    "isLight": true,
+    "accent": "#2f7fb8",
+    "average": "#d1e3f2"
+  },
+  {
+    "id": "builtin/blush-cloud",
+    "name": "Blush Cloud",
+    "file": "wallpapers/blush-cloud.png",
+    "isLight": true,
+    "accent": "#c04f7a",
+    "average": "#f0d8e1"
+  },
+  {
+    "id": "builtin/sea-glass",
+    "name": "Sea Glass",
+    "file": "wallpapers/sea-glass.png",
+    "isLight": true,
+    "accent": "#2e8f8f",
+    "average": "#d1e7e7"
+  },
+  {
+    "id": "builtin/linen",
+    "name": "Linen",
+    "file": "wallpapers/linen.png",
+    "isLight": true,
+    "accent": "#8a7458",
+    "average": "#e9e3db"
+  },
+  {
+    "id": "builtin/pale-iris",
+    "name": "Pale Iris",
+    "file": "wallpapers/pale-iris.png",
+    "isLight": true,
+    "accent": "#5a63b5",
+    "average": "#d8dbee"
+  },
+  {
+    "id": "builtin/citrus-cream",
+    "name": "Citrus Cream",
+    "file": "wallpapers/citrus-cream.png",
+    "isLight": true,
+    "accent": "#a8862a",
+    "average": "#f0e8cb"
+  },
+  {
+    "id": "builtin/cool-porcelain",
+    "name": "Cool Porcelain",
+    "file": "wallpapers/cool-porcelain.png",
+    "isLight": true,
+    "accent": "#54687e",
+    "average": "#e2e6eb"
+  }
+]

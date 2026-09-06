@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bookmarkle Wallpaper Gallery</title>
+  <link rel="icon" href="icons/icon48.png">
+  <link rel="stylesheet" href="css/gallery.css">
+</head>
+<body>
+  <header class="g-header">
+    <div class="g-brand">
+      <img src="icons/icon128.png" alt="" width="34" height="34">
+      <span>Bookmarkle</span>
+    </div>
+    <a class="g-back" id="g-back" href="newtab.html">Back to my boards</a>
+  </header>
+
+  <div class="g-controls">
+    <div class="g-chips" id="g-chips"></div>
+
+    <div class="g-row">
+      <div class="g-seg" id="g-theme">
+        <button data-theme="both" class="active">Both</button>
+        <button data-theme="dark">Dark</button>
+        <button data-theme="light">Light</button>
+      </div>
+
+      <div class="g-spacer"></div>
+
+      <label class="g-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+        <input id="g-search" type="search" placeholder="Search wallpapers" autocomplete="off" spellcheck="false">
+      </label>
+
+      <div class="g-sort">
+        <span>Sort</span>
+        <select id="g-sort">
+          <option value="recent">Recent</option>
+          <option value="popular">Popular</option>
+          <option value="old">Oldest</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <main class="g-grid" id="g-grid"></main>
+  <div class="g-status" id="g-status">Loading wallpapers...</div>
+  <div id="g-sentinel"></div>
+
+  <footer class="g-footer">&copy; All Rights Reserved &mdash; BookMarkle</footer>
+
+  <div class="g-viewer" id="g-viewer" hidden>
+    <button class="g-viewer-close" id="g-close" title="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="g-viewer-stage">
+      <button class="g-nav g-prev" id="g-prev" title="Previous">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <img id="g-viewer-img" alt="">
+      <button class="g-nav g-next" id="g-next" title="Next">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+    <div class="g-viewer-bar">
+      <div class="g-viewer-meta">
+        <div class="g-viewer-sub" id="g-viewer-sub"></div>
+        <h2 class="g-viewer-title" id="g-viewer-title"></h2>
+      </div>
+      <div class="g-viewer-actions">
+        <button class="g-btn g-btn-primary" id="g-viewer-add">Add to BookMarkle</button>
+        <button class="g-btn" id="g-viewer-download">Download</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="g-toasts"></div>
+
+  <script src="js/color.js"></script>
+  <script src="js/catalog.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/gallery.js"></script>
+</body>
+</html>

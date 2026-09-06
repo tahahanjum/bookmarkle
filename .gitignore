@@ -1,0 +1,18 @@
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Node (only used by the build scripts, which are not shipped here)
+node_modules/
+npm-debug.log*
+
+# Local scratch
+*.tmp
+*.bak
+*.orig

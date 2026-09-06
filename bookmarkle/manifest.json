@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "BookMarkle | Bookmark Manager",
+  "short_name": "Bookmarkle",
+  "version": "1.0.0",
+  "description": "Turn your new tab into beautiful boards of bookmarks, with wallpapers that theme the whole page.",
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Bookmarkle"
+  },
+  "commands": {
+    "quick-save": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Quick save the current page to Bookmarkle"
+    },
+    "save-all-tabs": {
+      "description": "Save all tabs in this window to Bookmarkle"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Bookmarkle</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      width: 292px;
+      font-family: "Segoe UI", Inter, system-ui, sans-serif;
+      background: #141418;
+      color: #f2f2f5;
+    }
+    header {
+      padding: 16px 18px 13px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dot { width: 11px; height: 11px; border-radius: 50%; background: #e0413f; }
+    h1 { font-size: 15px; margin: 0; font-weight: 700; }
+    .body { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    button {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+      padding: 12px 13px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+      color: #f2f2f5;
+      font: inherit;
+      font-size: 13.5px;
+      text-align: left;
+      cursor: pointer;
+    }
+    button:hover { background: rgba(255,255,255,.09); }
+    button.primary { background: #e0413f; border-color: transparent; font-weight: 600; }
+    button.primary:hover { filter: brightness(1.1); }
+    svg { width: 17px; height: 17px; flex: 0 0 17px; }
+    #status {
+      padding: 0 14px 14px;
+      font-size: 12.5px;
+      color: rgba(242,242,245,.6);
+      min-height: 17px;
+    }
+    #status.err { color: #f2585a; }
+  </style>
+</head>
+<body>
+  <header><span class="dot"></span><h1>Bookmarkle</h1></header>
+  <div class="body">
+    <button class="primary" id="save">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      Save this page
+    </button>
+    <button id="save-all">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="13" rx="2"/><path d="M8 6V4.6A1.6 1.6 0 019.6 3h10.8A1.6 1.6 0 0122 4.6v10.8A1.6 1.6 0 0120.4 17H19"/></svg>
+      Save all tabs in this window
+    </button>
+    <button id="open">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>
+      Open my boards
+    </button>
+  </div>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
