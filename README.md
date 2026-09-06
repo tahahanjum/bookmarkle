@@ -116,5 +116,12 @@ you ask for them. 22 of the bundled wallpapers are gradients created by the buil
 the default one, **Final Rest**, is a photograph from that catalog, included so the default
 works offline.
 
-No licence file is included. If you're publishing this publicly, add one (MIT is the
-usual choice for something like this) so people know what they may do with it.
+## Licence
+
+Copyright (c) 2026 Taha Anjum. All rights reserved.
+
+You are welcome to **download Bookmarkle and use it in your own browser, free of
+charge**. You may not redistribute it, sell it, modify it, or reuse its source
+code in another project. See [LICENSE](LICENSE) for the full terms.
+
+For permission requests, email support.bookmarkle@gmail.com.
