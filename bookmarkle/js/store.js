@@ -11,6 +11,7 @@
   function defaultSettings() {
     return {
       compactMode: true,
+      showClock: true,
       groupTools: false,
       hideExtraBookmarks: false,
       shortenTitles: true,

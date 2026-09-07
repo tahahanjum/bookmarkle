@@ -124,6 +124,7 @@
     root.setAttribute('data-mode', s.theme);
     root.setAttribute('data-compact', s.compactMode ? '1' : '0');
     root.setAttribute('data-shorten', s.shortenTitles ? '1' : '0');
+    root.setAttribute('data-clock', s.showClock === false ? '0' : '1');
 
     root.style.setProperty('--primary', t.primary);
     root.style.setProperty('--primary-soft', hexToRgba(t.primary, 0.16));
@@ -1554,6 +1555,7 @@
       return '<h1>General Settings</h1><div class="settings-rule"></div>' +
         '<div class="group"><div class="group-title">Appearance</div>' +
         toggleRow('compactMode', 'Compact mode', 'Reduce spacing to show more bookmarks.') +
+        toggleRow('showClock', 'Show clock', 'Display the time in the middle of the top bar.') +
         toggleRow('groupTools', 'Group right-side tools', 'Keep Search and Settings visible, and group the other right-side buttons into one menu on this device.') +
         toggleRow('hideExtraBookmarks', 'Hide extra bookmarks in long boards', 'Automatically hide extra bookmarks in long boards.') +
         toggleRow('shortenTitles', 'Shorten long titles', 'Show titles on one line with "...".') +
@@ -1981,27 +1983,8 @@
   }
 
   function startClock() {
-    var host = $("#clock");
     var el = $("#clock-time");
-    if (!el || !host) { return; }
-
-    function paintMask() {
-      var cs = window.getComputedStyle(el);
-      var box = host.getBoundingClientRect();
-      var svg =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="' + Math.max(1, Math.round(box.width)) +
-        '" height="' + Math.max(1, Math.round(box.height)) + '">' +
-        '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="#000"' +
-        ' font-family="' + cs.fontFamily.replace(/"/g, "'") + '"' +
-        ' font-size="' + parseFloat(cs.fontSize) + '"' +
-        ' font-weight="' + cs.fontWeight + '"' +
-        ' letter-spacing="' + (parseFloat(cs.letterSpacing) || 0) + '">' +
-        el.textContent + '</text></svg>';
-      host.style.setProperty(
-        "--clock-mask", 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")');
-    }
-
-    if (window.ResizeObserver) { new ResizeObserver(paintMask).observe(host); }
+    if (!el) { return; }
 
     function paint() {
       var now = new Date();
@@ -2009,7 +1992,6 @@
       if (h === 0) { h = 12; }
       var m = now.getMinutes();
       el.textContent = h + ":" + (m < 10 ? "0" + m : m);
-      paintMask();
       return now;
     }
 

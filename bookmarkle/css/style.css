@@ -160,8 +160,8 @@ body.zen #zen-exit { display: flex; }
 .topbar-spacer { flex: 1 1 0; min-width: 0; }
 
 #clock {
-  position: relative;
   flex: 0 0 auto;
+
   align-self: center;
   display: grid;
   place-items: center;
@@ -169,25 +169,10 @@ body.zen #zen-exit { display: flex; }
   user-select: none;
 }
 
-#clock::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: saturate(260%) contrast(210%);
-  -webkit-backdrop-filter: saturate(260%) contrast(210%);
-  -webkit-mask-image: var(--clock-mask, none);
-  mask-image: var(--clock-mask, none);
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-  pointer-events: none;
-}
+html[data-clock="0"] #clock,
+html[data-clock="0"] .topbar-spacer { display: none; }
 
 #clock-time {
-  position: relative;
   display: block;
 
   font-family: "SF Pro Display", -apple-system, "Segoe UI Variable Display",
@@ -197,11 +182,7 @@ body.zen #zen-exit { display: flex; }
   line-height: 1;
   letter-spacing: -2.25px;
 
-  color: transparent;
-  -webkit-text-stroke: 2px rgba(0, 0, 0, 0.17);
-  text-shadow:
-    0 0 10px rgba(0, 0, 0, 0.2),
-    0 6px 16px rgba(0, 0, 0, 0.22);
+  color: var(--primary);
 
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
