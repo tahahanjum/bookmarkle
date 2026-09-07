@@ -10,7 +10,7 @@
 
   function defaultSettings() {
     return {
-      compactMode: false,
+      compactMode: true,
       groupTools: false,
       hideExtraBookmarks: false,
       shortenTitles: true,
@@ -317,6 +317,22 @@
     return l;
   }
 
+  function replaceBoardLinks(boardId, links) {
+    var hit = findBoard(boardId);
+    if (!hit) { return null; }
+    hit.board.links = links.map(function (link) {
+      return {
+        id: uid(),
+        url: link.url,
+        title: link.title || link.url,
+        description: link.description || '',
+        addedAt: Date.now()
+      };
+    });
+    commit();
+    return hit.board;
+  }
+
   function updateLink(boardId, linkId, patch) {
     var hit = findBoard(boardId);
     if (!hit) { return; }
@@ -488,6 +504,7 @@
     moveBoard: moveBoard,
     moveBoardToPage: moveBoardToPage,
     addLink: addLink,
+    replaceBoardLinks: replaceBoardLinks,
     updateLink: updateLink,
     deleteLink: deleteLink,
     moveLink: moveLink,

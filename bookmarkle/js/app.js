@@ -1153,6 +1153,45 @@
     );
   }
 
+  var CHROME_BOARD_TITLE = 'Chrome Bookmarks';
+
+  function flattenBookmarks(nodes, out, seen) {
+    nodes.forEach(function (n) {
+      if (n.children) { flattenBookmarks(n.children, out, seen); return; }
+      if (!n.url || !/^https?:/i.test(n.url) || seen[n.url]) { return; }
+      seen[n.url] = true;
+      out.push({ url: n.url, title: n.title || n.url });
+    });
+    return out;
+  }
+
+  function importChromeBookmarks(btn) {
+    if (!chrome.bookmarks || !chrome.bookmarks.getTree) {
+      toast('Bookmark access is not available in this browser', true);
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+    chrome.bookmarks.getTree(function (tree) {
+      var links = flattenBookmarks(tree || [], [], {});
+      if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
+      if (!links.length) { toast('No bookmarks found in this profile', true); return; }
+
+      var existing = null;
+      Store.allBoards().forEach(function (b) {
+        if (b.title === CHROME_BOARD_TITLE) { existing = b; }
+      });
+
+      if (existing) {
+        Store.replaceBoardLinks(existing.id, links);
+        toast('Refreshed ' + links.length + ' Chrome bookmarks');
+      } else {
+        var board = Store.addBoard(0, CHROME_BOARD_TITLE);
+        Store.replaceBoardLinks(board.id, links);
+        toast('Imported ' + links.length + ' Chrome bookmarks');
+      }
+    });
+  }
+
   function saveAllTabs() {
     chrome.tabs.query({ currentWindow: true }, function (tabs) {
       var keep = tabs.filter(function (t) {
@@ -1530,6 +1569,14 @@
         '<div class="row-sub">Open browser shortcut settings to change this key.</div></div>' +
         '<span class="kbd">Ctrl+Shift+Y</span>' +
         '<button class="btn btn-sm" id="set-shortcut">Change</button></div>' +
+        '</div>' +
+        '<div class="group"><div class="group-title">Chrome bookmarks</div>' +
+        '<div class="row"><div class="row-text"><div class="row-title">Import Chrome bookmarks</div>' +
+        '<div class="row-sub">Collect every bookmark saved in this Chrome profile into a board called "' +
+        CHROME_BOARD_TITLE + '" on the current page. Folders are flattened into the one board. ' +
+        'Running it again refreshes that board instead of adding a second one, and your Chrome ' +
+        'bookmarks are only read, never changed.</div></div>' +
+        '<button class="btn" id="set-chrome-bm">Import</button></div>' +
         '</div>';
     }
 
@@ -1647,6 +1694,11 @@
     var qs = $('#set-qs', host);
     if (qs) {
       qs.addEventListener('change', function () { Store.setSetting('quickSaveDestination', qs.value); });
+    }
+
+    var cbm = $('#set-chrome-bm', host);
+    if (cbm) {
+      cbm.addEventListener('click', function () { importChromeBookmarks(cbm); });
     }
 
     var sc = $('#set-shortcut', host);
@@ -1928,9 +1980,56 @@
     });
   }
 
+  function startClock() {
+    var host = $("#clock");
+    var el = $("#clock-time");
+    if (!el || !host) { return; }
+
+    function paintMask() {
+      var cs = window.getComputedStyle(el);
+      var box = host.getBoundingClientRect();
+      var svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' + Math.max(1, Math.round(box.width)) +
+        '" height="' + Math.max(1, Math.round(box.height)) + '">' +
+        '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="#000"' +
+        ' font-family="' + cs.fontFamily.replace(/"/g, "'") + '"' +
+        ' font-size="' + parseFloat(cs.fontSize) + '"' +
+        ' font-weight="' + cs.fontWeight + '"' +
+        ' letter-spacing="' + (parseFloat(cs.letterSpacing) || 0) + '">' +
+        el.textContent + '</text></svg>';
+      host.style.setProperty(
+        "--clock-mask", 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")');
+    }
+
+    if (window.ResizeObserver) { new ResizeObserver(paintMask).observe(host); }
+
+    function paint() {
+      var now = new Date();
+      var h = now.getHours() % 12;
+      if (h === 0) { h = 12; }
+      var m = now.getMinutes();
+      el.textContent = h + ":" + (m < 10 ? "0" + m : m);
+      paintMask();
+      return now;
+    }
+
+    function schedule() {
+      var now = paint();
+      var ms = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+      setTimeout(schedule, Math.max(ms, 1000));
+    }
+
+    schedule();
+
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) { paint(); }
+    });
+  }
+
   Store.load().then(function () {
     Store.subscribe(render);
     bind();
+    startClock();
     $('#btn-rail-toggle').innerHTML = I.svg('grip', 22);
     render();
 
