@@ -18,6 +18,91 @@
     wpCollapsed: {}
   };
 
+  function num(v, fallback) {
+    return typeof v === 'number' && isFinite(v) ? v : fallback;
+  }
+
+  var CLOCK_FONTS = [
+    { id: 'saira', label: 'Saira', family: 'Clock Saira', min: 50, max: 125, weight: 620 },
+    { id: 'archivo', label: 'Archivo', family: 'Clock Archivo', min: 62, max: 125, weight: 640 },
+    { id: 'encode', label: 'Encode Sans', family: 'Clock Encode', min: 75, max: 125, weight: 640 },
+    { id: 'robotoflex', label: 'Roboto Flex', family: 'Clock Roboto Flex', min: 25, max: 151, weight: 640 },
+    { id: 'asap', label: 'Asap', family: 'Clock Asap', min: 75, max: 125, weight: 640 }
+  ];
+
+  function clockFontById(id) {
+    for (var i = 0; i < CLOCK_FONTS.length; i++) {
+      if (CLOCK_FONTS[i].id === id) { return CLOCK_FONTS[i]; }
+    }
+    return CLOCK_FONTS[0];
+  }
+
+  function measureAxis(family, wdth) {
+    var el = document.createElement('span');
+    el.style.cssText =
+      'position:absolute;left:-9999px;top:-9999px;white-space:pre;font-size:100px;' +
+      'font-family:"' + family + '";font-variation-settings:"wdth" ' + wdth + ';';
+    el.textContent = '00:00';
+    document.body.appendChild(el);
+    var w = el.getBoundingClientRect().width;
+    el.remove();
+    return w;
+  }
+
+  function calibrateClockFont(font) {
+    if (font.k) { return font; }
+    font.base = Math.min(font.max, Math.max(font.min, 100));
+    var w0 = measureAxis(font.family, font.base);
+    var wMin = measureAxis(font.family, font.min);
+    if (!w0 || !wMin || font.min === font.base) { font.k = 0; return font; }
+    font.k = (wMin / w0 - 1) / (font.min - font.base);
+    return font;
+  }
+
+  function calibrateAllClockFonts() {
+    if (!document.fonts || !document.fonts.load) {
+      CLOCK_FONTS.forEach(calibrateClockFont);
+      return Promise.resolve();
+    }
+    return Promise.all(CLOCK_FONTS.map(function (f) {
+      return document.fonts.load('100px "' + f.family + '"').catch(function () {});
+    })).then(function () {
+      CLOCK_FONTS.forEach(calibrateClockFont);
+    });
+  }
+
+  function clockAxes(stretch, fontId) {
+    var font = calibrateClockFont(clockFontById(fontId));
+    var s = Math.max(0.1, num(stretch, 1));
+    var want = 1 / s;
+
+    if (!font.k) {
+      return { wdth: font.base || 100, wght: font.weight, squeeze: Math.round(want * 1000) / 1000 };
+    }
+
+    var wdth = font.base + (want - 1) / font.k;
+    wdth = Math.min(font.max, Math.max(font.min, wdth));
+
+    var got = 1 + (wdth - font.base) * font.k;
+    var squeeze = Math.min(1, want / got);
+
+    var wght = Math.round(Math.min(900, Math.max(100,
+      font.weight + (font.base - wdth) * 1.8)));
+
+    return {
+      wdth: Math.round(wdth * 10) / 10,
+      wght: wght,
+      squeeze: Math.round(squeeze * 1000) / 1000
+    };
+  }
+
+  function writeClockAxes(root, stretch, fontId) {
+    var ax = clockAxes(stretch, fontId);
+    root.style.setProperty('--clock-wdth', ax.wdth);
+    root.style.setProperty('--clock-wght', ax.wght);
+    root.style.setProperty('--clock-squeeze', ax.squeeze);
+  }
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -125,6 +210,18 @@
     root.setAttribute('data-compact', s.compactMode ? '1' : '0');
     root.setAttribute('data-shorten', s.shortenTitles ? '1' : '0');
     root.setAttribute('data-clock', s.showClock === false ? '0' : '1');
+    root.style.setProperty('--clock-x', num(s.clockX, 50));
+    root.style.setProperty('--clock-y', num(s.clockY, 10));
+    root.style.setProperty('--clock-scale', num(s.clockScale, 1));
+    root.style.setProperty('--clock-stretch', num(s.clockStretch, 1));
+    root.style.setProperty('--clock-family',
+      '"' + clockFontById(s.clockFont).family + '"');
+    root.style.setProperty('--clock-ink',
+      s.clockColorMode === 'custom' ? (s.clockColor || '#ffffff') : t.primary);
+    root.setAttribute('data-clock-glass', s.clockGlass ? '1' : '0');
+    writeClockAxes(root, s.clockStretch, s.clockFont);
+
+    clampClockIntoView();
 
     root.style.setProperty('--primary', t.primary);
     root.style.setProperty('--primary-soft', hexToRgba(t.primary, 0.16));
@@ -1855,9 +1952,16 @@
     });
 
     $('#btn-zen').addEventListener('click', function () {
-      document.body.classList.add('zen');
+      var body = document.body;
+      var all = body.classList.contains('zen');
+      var clockOnly = body.classList.contains('zen-clock');
+      body.classList.remove('zen');
+      body.classList.remove('zen-clock');
+      if (!all && !clockOnly) { body.classList.add('zen'); }
+      else if (all) { body.classList.add('zen-clock'); }
     });
     $('#zen-exit').addEventListener('click', function () {
+      document.body.classList.remove('zen-clock');
       document.body.classList.remove('zen');
     });
 
@@ -1923,7 +2027,12 @@
       if (e.key === 'Escape') {
         if ($('#overlay').classList.contains('open')) { closeModal(); return; }
         if (ui.searching) { closeSearch(); return; }
-        if (document.body.classList.contains('zen')) { document.body.classList.remove('zen'); return; }
+        if (document.body.classList.contains('zen') ||
+            document.body.classList.contains('zen-clock')) {
+          document.body.classList.remove('zen');
+          document.body.classList.remove('zen-clock');
+          return;
+        }
         if (ui.selecting) { toggleSelect(); return; }
         closeMenu();
         return;
@@ -1982,6 +2091,384 @@
     });
   }
 
+  var clampClockIntoView = function () {};
+
+  var CLOCK_MIN_SCALE = 0.35;
+  var CLOCK_MAX_SCALE = 3;
+  var CLOCK_MIN_STRETCH = 0.6;
+  var CLOCK_MAX_STRETCH = 2.6;
+
+  function refreshClockGlass() {
+    var host = $('#clock');
+    var el = $('#clock-time');
+    var defs = $('#clock-defs');
+    if (!host || !el || !defs) { return; }
+
+    var svg = defs.firstChild;
+    var mask = $('#clock-glass-mask', defs);
+    var text = $('#clock-glass-text', defs);
+    if (!svg || !mask || !text) { return; }
+
+    var box = host.getBoundingClientRect();
+    var er = el.getBoundingClientRect();
+    var w = Math.max(1, Math.round(box.width));
+    var h = Math.max(1, Math.round(box.height));
+    var cs = window.getComputedStyle(el);
+
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    mask.setAttribute('x', 0);
+    mask.setAttribute('y', 0);
+    mask.setAttribute('width', w);
+    mask.setAttribute('height', h);
+
+    var cx = er.left - box.left + er.width / 2;
+    var cy = er.top - box.top + er.height / 2;
+
+    text.textContent = el.textContent;
+    text.style.cssText =
+      'font-family:' + cs.fontFamily + ';' +
+      'font-size:' + cs.fontSize + ';' +
+      'font-weight:' + cs.fontWeight + ';' +
+      'font-variation-settings:' + cs.fontVariationSettings + ';' +
+      'letter-spacing:' + cs.letterSpacing + ';' +
+      'fill:#fff;';
+
+    text.setAttribute('transform', '');
+    text.setAttribute('x', cx);
+    text.setAttribute('y', cy);
+
+    var bb = null;
+    try { bb = text.getBBox(); } catch (e) { bb = null; }
+    if (bb && bb.width) {
+      text.setAttribute('x', cx + (cx - (bb.x + bb.width / 2)));
+      text.setAttribute('y', cy + (cy - (bb.y + bb.height / 2)));
+    }
+
+    var squeeze = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--clock-squeeze')
+    );
+    if (!isFinite(squeeze) || squeeze <= 0) { squeeze = 1; }
+    if (squeeze !== 1) {
+      text.setAttribute('transform',
+        'translate(' + cx + ' ' + cy + ') scale(' + squeeze + ' 1) ' +
+        'translate(' + (-cx) + ' ' + (-cy) + ')');
+    }
+  }
+
+  function clockPropsMenu(x, y) {
+    var st = Store.state.settings;
+    var wrap = document.createElement('div');
+    wrap.className = 'menu clock-props';
+
+    function section(title) {
+      var h = document.createElement('div');
+      h.className = 'menu-head';
+      h.textContent = title;
+      wrap.appendChild(h);
+    }
+
+    section('Font');
+    var fonts = document.createElement('div');
+    fonts.className = 'clock-fonts';
+    CLOCK_FONTS.forEach(function (f) {
+      var b = document.createElement('button');
+      b.className = 'clock-font' + (st.clockFont === f.id ? ' on' : '');
+      b.style.fontFamily = '"' + f.family + '"';
+      b.textContent = '12';
+      b.title = f.label;
+      b.addEventListener('click', function () {
+        Store.setSetting('clockFont', f.id);
+        fonts.querySelectorAll('.clock-font').forEach(function (n) {
+          n.classList.remove('on');
+        });
+        b.classList.add('on');
+        refreshClockGlass();
+      });
+      fonts.appendChild(b);
+    });
+    wrap.appendChild(fonts);
+
+    section('Colour');
+    var colours = document.createElement('div');
+    colours.className = 'clock-colours';
+
+    var accent = document.createElement('button');
+    var custom = document.createElement('button');
+    function markMode(mode) {
+      accent.classList.toggle('btn-primary', mode !== 'custom');
+      custom.classList.toggle('btn-primary', mode === 'custom');
+    }
+
+    accent.className = 'btn btn-sm';
+    accent.textContent = 'Accent';
+    accent.addEventListener('click', function () {
+      Store.setSetting('clockColorMode', 'accent');
+      markMode('accent');
+    });
+
+    custom.className = 'btn btn-sm';
+    custom.textContent = 'Custom';
+    custom.addEventListener('click', function () {
+      Store.setSetting('clockColorMode', 'custom');
+      markMode('custom');
+    });
+
+    var swatch = document.createElement('input');
+    swatch.type = 'color';
+    swatch.className = 'clock-swatch';
+    swatch.value = st.clockColor || '#ffffff';
+    swatch.title = 'Pick a colour';
+    swatch.addEventListener('input', function () {
+      Store.setSetting('clockColor', swatch.value);
+
+      Store.setSetting('clockColorMode', 'custom');
+      markMode('custom');
+    });
+
+    markMode(st.clockColorMode);
+    colours.appendChild(accent);
+    colours.appendChild(custom);
+    colours.appendChild(swatch);
+    wrap.appendChild(colours);
+
+    section('Style');
+    var glassRow = document.createElement('div');
+    glassRow.className = 'clock-row';
+    var label = document.createElement('span');
+    label.textContent = 'Glass';
+    var tog = document.createElement('button');
+    tog.className = 'toggle' + (st.clockGlass ? ' on' : '');
+    tog.addEventListener('click', function () {
+      var next = !Store.state.settings.clockGlass;
+      Store.setSetting('clockGlass', next);
+      tog.classList.toggle('on', next);
+      refreshClockGlass();
+    });
+    glassRow.appendChild(label);
+    glassRow.appendChild(tog);
+    wrap.appendChild(glassRow);
+
+    section('Reset');
+    var resets = document.createElement('div');
+    resets.className = 'clock-colours';
+
+    var toHome = document.createElement('button');
+    toHome.className = 'btn btn-sm';
+    toHome.textContent = 'Position';
+    toHome.title = 'Move the clock back to its default place';
+    toHome.addEventListener('click', function () {
+      resetClock(['clockX', 'clockY']);
+      refreshClockGlass();
+    });
+
+    var toDefaults = document.createElement('button');
+    toDefaults.className = 'btn btn-sm';
+    toDefaults.textContent = 'Everything';
+    toDefaults.title = 'Put every clock setting back to default';
+    toDefaults.addEventListener('click', function () {
+      resetClock(CLOCK_KEYS);
+      var st2 = Store.state.settings;
+
+      fonts.querySelectorAll('.clock-font').forEach(function (n, i) {
+        n.classList.toggle('on', CLOCK_FONTS[i].id === st2.clockFont);
+      });
+      markMode(st2.clockColorMode);
+      swatch.value = st2.clockColor || '#ffffff';
+      tog.classList.toggle('on', !!st2.clockGlass);
+      refreshClockGlass();
+    });
+
+    resets.appendChild(toHome);
+    resets.appendChild(toDefaults);
+    wrap.appendChild(resets);
+
+    document.body.appendChild(wrap);
+    document.body.classList.add('clock-menu');
+    var r = wrap.getBoundingClientRect();
+    wrap.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 12)) + 'px';
+    wrap.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 12)) + 'px';
+
+    function close(e) {
+      if (e && wrap.contains(e.target)) { return; }
+      document.removeEventListener('pointerdown', close, true);
+      document.removeEventListener('keydown', onKey, true);
+      document.body.classList.remove('clock-menu');
+      wrap.remove();
+    }
+    function onKey(e) { if (e.key === 'Escape') { close(); } }
+    setTimeout(function () {
+      document.addEventListener('pointerdown', close, true);
+      document.addEventListener('keydown', onKey, true);
+    }, 0);
+  }
+
+  var CLOCK_KEYS = [
+    'clockFont', 'clockColorMode', 'clockColor', 'clockGlass',
+    'clockScale', 'clockStretch', 'clockX', 'clockY'
+  ];
+
+  function resetClock(keys) {
+    var d = Store.defaultSettings();
+    keys.forEach(function (k) { Store.setSetting(k, d[k]); });
+  }
+
+  function makeClockInteractive() {
+    var host = $('#clock');
+    if (!host) { return; }
+
+    function grip(id) {
+      var el = document.createElement('div');
+      el.id = id;
+      el.className = 'clock-grip';
+      host.appendChild(el);
+      return el;
+    }
+
+    var defs = document.createElement('div');
+    defs.id = 'clock-defs';
+    defs.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<defs><mask id="clock-glass-mask" maskUnits="userSpaceOnUse">' +
+      '<text id="clock-glass-text" text-anchor="middle"' +
+      ' dominant-baseline="central"></text>' +
+      '</mask></defs></svg>';
+    host.appendChild(defs);
+
+    var glass = document.createElement('div');
+    glass.id = 'clock-glass';
+    glass.style.setProperty('--clock-glass-mask', 'url(#clock-glass-mask)');
+    host.insertBefore(glass, host.firstChild);
+
+    host.addEventListener('contextmenu', function (e) {
+      e.preventDefault();
+      clockPropsMenu(e.clientX, e.clientY);
+    });
+
+    host.addEventListener('pointerenter', function () {
+      document.body.classList.add('clock-hover');
+    });
+    host.addEventListener('pointerleave', function () {
+      document.body.classList.remove('clock-hover');
+    });
+
+    var gripV = grip('clock-grip-v');
+    var gripH = grip('clock-grip-h');
+    gripV.title = 'Drag to stretch';
+    gripH.title = 'Drag to resize';
+
+    var drag = null;
+
+    function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+    function centre() {
+      var box = host.getBoundingClientRect();
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2, box: box };
+    }
+
+    function commitPosition(cx, cy) {
+      var box = host.getBoundingClientRect();
+      var padX = (box.width / 2) / window.innerWidth * 100;
+      var padY = (box.height / 2) / window.innerHeight * 100;
+      var x = clamp(cx / window.innerWidth * 100, padX, 100 - padX);
+      var y = clamp(cy / window.innerHeight * 100, padY, 100 - padY);
+      document.documentElement.style.setProperty('--clock-x', x);
+      document.documentElement.style.setProperty('--clock-y', y);
+      return { x: x, y: y };
+    }
+
+    host.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || e.target === gripV || e.target === gripH) { return; }
+      var c = centre();
+      drag = { kind: 'move', dx: e.clientX - c.x, dy: e.clientY - c.y, moved: false };
+      host.setPointerCapture(e.pointerId);
+      host.classList.add('dragging');
+      document.body.classList.add('clock-dragging');
+      e.preventDefault();
+    });
+
+    function startResize(el, kind) {
+      el.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) { return; }
+        var c = centre();
+        var st = Store.state.settings;
+        drag = {
+          kind: kind,
+          from: Math.max(10, kind === 'stretch'
+            ? Math.abs(e.clientY - c.y)
+            : Math.abs(e.clientX - c.x)),
+          base: num(kind === 'stretch' ? st.clockStretch : st.clockScale, 1)
+        };
+        el.setPointerCapture(e.pointerId);
+        host.classList.add('sizing');
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    }
+    startResize(gripV, 'stretch');
+    startResize(gripH, 'scale');
+
+    function onMove(e) {
+      if (!drag) { return; }
+      if (drag.kind === 'move') {
+        drag.moved = true;
+        drag.last = commitPosition(e.clientX - drag.dx, e.clientY - drag.dy);
+        return;
+      }
+      var c = centre();
+      if (drag.kind === 'stretch') {
+        drag.value = clamp(drag.base * (Math.abs(e.clientY - c.y) / drag.from),
+          CLOCK_MIN_STRETCH, CLOCK_MAX_STRETCH);
+        document.documentElement.style.setProperty('--clock-stretch', drag.value);
+        writeClockAxes(document.documentElement, drag.value, Store.state.settings.clockFont);
+        refreshClockGlass();
+      } else {
+        drag.value = clamp(drag.base * (Math.abs(e.clientX - c.x) / drag.from),
+          CLOCK_MIN_SCALE, CLOCK_MAX_SCALE);
+        document.documentElement.style.setProperty('--clock-scale', drag.value);
+
+        refreshClockGlass();
+      }
+    }
+
+    function onUp() {
+      if (!drag) { return; }
+      if (drag.kind === 'move') {
+        if (drag.moved && drag.last) {
+          Store.setSetting('clockX', drag.last.x);
+          Store.setSetting('clockY', drag.last.y);
+        }
+      } else if (typeof drag.value === 'number') {
+        Store.setSetting(drag.kind === 'stretch' ? 'clockStretch' : 'clockScale', drag.value);
+
+        var c = centre();
+        var at = commitPosition(c.x, c.y);
+        Store.setSetting('clockX', at.x);
+        Store.setSetting('clockY', at.y);
+      }
+      drag = null;
+      host.classList.remove('dragging');
+      host.classList.remove('sizing');
+      document.body.classList.remove('clock-dragging');
+      refreshClockGlass();
+    }
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+
+    clampClockIntoView = function () {
+      refreshClockGlass();
+      if (drag) { return; }
+      var box = host.getBoundingClientRect();
+      if (!box.width) { return; }
+      commitPosition(box.left + box.width / 2, box.top + box.height / 2);
+    };
+
+    window.addEventListener('resize', clampClockIntoView);
+    clampClockIntoView();
+  }
+
   function startClock() {
     var el = $("#clock-time");
     if (!el) { return; }
@@ -1992,6 +2479,7 @@
       if (h === 0) { h = 12; }
       var m = now.getMinutes();
       el.textContent = h + ":" + (m < 10 ? "0" + m : m);
+      refreshClockGlass();
       return now;
     }
 
@@ -2012,6 +2500,12 @@
     Store.subscribe(render);
     bind();
     startClock();
+    makeClockInteractive();
+
+    calibrateAllClockFonts().then(function () {
+      render();
+      refreshClockGlass();
+    });
     $('#btn-rail-toggle').innerHTML = I.svg('grip', 22);
     render();
 

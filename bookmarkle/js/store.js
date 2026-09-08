@@ -12,6 +12,17 @@
     return {
       compactMode: true,
       showClock: true,
+
+      clockX: 50,
+      clockY: 10,
+      clockScale: 1,
+
+      clockStretch: 1,
+      clockFont: 'saira',
+
+      clockColorMode: 'accent',
+      clockColor: '#ffffff',
+      clockGlass: false,
       groupTools: false,
       hideExtraBookmarks: false,
       shortenTitles: true,
@@ -493,6 +504,7 @@
     allBoards: allBoards,
     currentTheme: currentTheme,
     defaultThemeStyle: defaultThemeStyle,
+    defaultSettings: defaultSettings,
     addPage: addPage,
     renamePage: renamePage,
     deletePage: deletePage,
