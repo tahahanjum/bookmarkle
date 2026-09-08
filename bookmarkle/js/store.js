@@ -1,8 +1,8 @@
-(function (global) {
+(global => {
   'use strict';
 
-  var KEY = 'bookmarkle:v1';
-  var COLS = 4;
+  const KEY = 'bookmarkle:v1';
+  const COLS = 4;
 
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -52,7 +52,8 @@
   }
 
   function emptyColumns() {
-    var c = [], i;
+    const c = [];
+    let i;
     for (i = 0; i < COLS; i++) { c.push([]); }
     return c;
   }
@@ -66,7 +67,7 @@
   }
 
   function seed() {
-    var page = makePage('Home');
+    const page = makePage('Home');
     return {
       version: 1,
       pages: [page],
@@ -78,27 +79,27 @@
     };
   }
 
-  var state = null;
-  var listeners = [];
-  var saveTimer = null;
+  let state = null;
+  const listeners = [];
+  let saveTimer = null;
 
   function migrate(data) {
     if (!data || typeof data !== 'object') { return seed(); }
     if (!Array.isArray(data.pages) || !data.pages.length) { return seed(); }
-    data.settings = Object.assign(defaultSettings(), data.settings || {});
+    data.settings = { ...defaultSettings(), ...(data.settings || {}) };
     data.themes = data.themes || {};
-    ['dark', 'light'].forEach(function (mode) {
-      var isLight = mode === 'light';
-      var t = Object.assign(defaultThemeStyle(isLight), data.themes[mode] || {});
+    ['dark', 'light'].forEach(mode => {
+      const isLight = mode === 'light';
+      const t = { ...defaultThemeStyle(isLight), ...(data.themes[mode] || {}) };
 
       if (t.dim !== undefined) {
-        if (!t.board) { t.board = isLight ? '#EFF0F1' : '#14161C'; }
+        t.board ||= isLight ? '#EFF0F1' : '#14161C';
         if (typeof t.opacity !== 'number') { t.opacity = isLight ? 0.35 : 0.5; }
         delete t.dim;
       }
 
       if (!t.wallpaperSrc) {
-        var d = defaultThemeStyle(isLight);
+        const d = defaultThemeStyle(isLight);
         t.wallpaperId = d.wallpaperId;
         t.wallpaperSrc = d.wallpaperSrc;
         t.wallpaperName = d.wallpaperName;
@@ -106,47 +107,42 @@
       data.themes[mode] = t;
     });
     data.wallpapers = data.wallpapers || {};
-    data.wallpapers.user = (data.wallpapers.user || []).filter(function (w) { return w && w.src; });
+    data.wallpapers.user = (data.wallpapers.user || []).filter(w => w && w.src);
     data.trash = data.trash || [];
-    data.pages.forEach(function (p) {
+    data.pages.forEach(p => {
       if (!Array.isArray(p.columns)) { p.columns = emptyColumns(); }
       while (p.columns.length < COLS) { p.columns.push([]); }
-      p.columns.forEach(function (col) {
-        col.forEach(function (b) {
+      p.columns.forEach(col => {
+        col.forEach(b => {
           b.links = b.links || [];
-          b.links.forEach(function (l) { if (!l.id) { l.id = uid(); } });
+          b.links.forEach(l => { l.id ||= uid(); });
         });
       });
     });
-    if (!data.pages.some(function (p) { return p.id === data.activePageId; })) {
+    if (!data.pages.some(p => p.id === data.activePageId)) {
       data.activePageId = data.pages[0].id;
     }
     return data;
   }
 
-  function load() {
-    return new Promise(function (resolve) {
-      chrome.storage.local.get(KEY, function (res) {
-        state = migrate(res && res[KEY]);
-        myRev = state.rev || 0;
-        watchStorage();
-        resolve(state);
-      });
-    });
+  async function load() {
+    const res = await chrome.storage.local.get(KEY);
+    state = migrate(res && res[KEY]);
+    myRev = state.rev || 0;
+    watchStorage();
+    return state;
   }
 
-  var PAGE_ID = uid();
-  var myRev = 0;
+  const PAGE_ID = uid();
+  let myRev = 0;
 
   function persist() {
     if (saveTimer) { clearTimeout(saveTimer); }
-    saveTimer = setTimeout(function () {
+    saveTimer = setTimeout(() => {
       state.rev = (state.rev || 0) + 1;
       state.writer = PAGE_ID;
       myRev = state.rev;
-      var payload = {};
-      payload[KEY] = state;
-      chrome.storage.local.set(payload);
+      chrome.storage.local.set({ [KEY]: state });
     }, 120);
   }
 
@@ -161,14 +157,14 @@
 
   function watchStorage() {
     if (!global.chrome || !chrome.storage || !chrome.storage.onChanged) { return; }
-    chrome.storage.onChanged.addListener(function (changes, area) {
+    chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local' || !changes[KEY]) { return; }
       adoptExternal(changes[KEY].newValue);
     });
   }
 
   function emit() {
-    listeners.forEach(function (fn) { fn(state); });
+    listeners.forEach(fn => { fn(state); });
   }
 
   function commit() {
@@ -177,26 +173,26 @@
   }
 
   function activePage() {
-    for (var i = 0; i < state.pages.length; i++) {
+    for (let i = 0; i < state.pages.length; i++) {
       if (state.pages[i].id === state.activePageId) { return state.pages[i]; }
     }
     return state.pages[0];
   }
 
   function pageById(id) {
-    for (var i = 0; i < state.pages.length; i++) {
+    for (let i = 0; i < state.pages.length; i++) {
       if (state.pages[i].id === id) { return state.pages[i]; }
     }
     return null;
   }
 
   function findBoard(boardId) {
-    for (var p = 0; p < state.pages.length; p++) {
-      var page = state.pages[p];
-      for (var c = 0; c < page.columns.length; c++) {
-        for (var b = 0; b < page.columns[c].length; b++) {
+    for (let p = 0; p < state.pages.length; p++) {
+      const page = state.pages[p];
+      for (let c = 0; c < page.columns.length; c++) {
+        for (let b = 0; b < page.columns[c].length; b++) {
           if (page.columns[c][b].id === boardId) {
-            return { page: page, col: c, index: b, board: page.columns[c][b] };
+            return { page, col: c, index: b, board: page.columns[c][b] };
           }
         }
       }
@@ -205,11 +201,7 @@
   }
 
   function allBoards(page) {
-    var out = [];
-    (page || activePage()).columns.forEach(function (col) {
-      col.forEach(function (b) { out.push(b); });
-    });
-    return out;
+    return (page || activePage()).columns.flat();
   }
 
   function currentTheme() {
@@ -217,7 +209,7 @@
   }
 
   function addPage(name) {
-    var p = makePage(name);
+    const p = makePage(name);
     state.pages.push(p);
     state.activePageId = p.id;
     commit();
@@ -225,15 +217,15 @@
   }
 
   function renamePage(id, name) {
-    var p = pageById(id);
+    const p = pageById(id);
     if (p) { p.name = name; commit(); }
   }
 
   function deletePage(id) {
     if (state.pages.length <= 1) { return false; }
-    var idx = state.pages.findIndex(function (p) { return p.id === id; });
+    const idx = state.pages.findIndex(p => p.id === id);
     if (idx < 0) { return false; }
-    var removed = state.pages.splice(idx, 1)[0];
+    const removed = state.pages.splice(idx, 1)[0];
     state.trash.unshift({ id: uid(), kind: 'page', label: removed.name, payload: removed, at: Date.now() });
     if (state.activePageId === id) {
       state.activePageId = state.pages[Math.max(0, idx - 1)].id;
@@ -249,27 +241,27 @@
 
   function movePage(fromIdx, toIdx) {
     if (toIdx < 0 || toIdx >= state.pages.length) { return; }
-    var moved = state.pages.splice(fromIdx, 1)[0];
+    const moved = state.pages.splice(fromIdx, 1)[0];
     state.pages.splice(toIdx, 0, moved);
     commit();
   }
 
   function addBoard(col, title) {
-    var page = activePage();
-    var b = makeBoard(title);
-    var c = Math.max(0, Math.min(page.columns.length - 1, col));
+    const page = activePage();
+    const b = makeBoard(title);
+    const c = Math.max(0, Math.min(page.columns.length - 1, col));
     page.columns[c].push(b);
     commit();
     return b;
   }
 
   function renameBoard(boardId, title) {
-    var hit = findBoard(boardId);
+    const hit = findBoard(boardId);
     if (hit) { hit.board.title = title; commit(); }
   }
 
   function toggleBoardCollapsed(boardId) {
-    var hit = findBoard(boardId);
+    const hit = findBoard(boardId);
     if (!hit) { return; }
     hit.board.collapsed = !hit.board.collapsed;
     commit();
@@ -277,7 +269,7 @@
   }
 
   function deleteBoard(boardId) {
-    var hit = findBoard(boardId);
+    const hit = findBoard(boardId);
     if (!hit) { return; }
     hit.page.columns[hit.col].splice(hit.index, 1);
     state.trash.unshift({
@@ -288,12 +280,12 @@
   }
 
   function moveBoard(boardId, toCol, toIndex) {
-    var hit = findBoard(boardId);
+    const hit = findBoard(boardId);
     if (!hit) { return; }
-    var page = hit.page;
+    const page = hit.page;
     page.columns[hit.col].splice(hit.index, 1);
-    var target = Math.max(0, Math.min(page.columns.length - 1, toCol));
-    var at = toIndex;
+    const target = Math.max(0, Math.min(page.columns.length - 1, toCol));
+    let at = toIndex;
     if (at === undefined || at === null || at > page.columns[target].length) {
       at = page.columns[target].length;
     }
@@ -302,12 +294,12 @@
   }
 
   function moveBoardToPage(boardId, pageId) {
-    var hit = findBoard(boardId);
-    var target = pageById(pageId);
+    const hit = findBoard(boardId);
+    const target = pageById(pageId);
     if (!hit || !target || hit.page.id === pageId) { return; }
     hit.page.columns[hit.col].splice(hit.index, 1);
-    var shortest = 0;
-    for (var i = 1; i < target.columns.length; i++) {
+    let shortest = 0;
+    for (let i = 1; i < target.columns.length; i++) {
       if (target.columns[i].length < target.columns[shortest].length) { shortest = i; }
     }
     target.columns[shortest].push(hit.board);
@@ -315,9 +307,9 @@
   }
 
   function addLink(boardId, link) {
-    var hit = findBoard(boardId);
+    const hit = findBoard(boardId);
     if (!hit) { return null; }
-    var l = {
+    const l = {
       id: uid(),
       url: link.url,
       title: link.title || link.url,
@@ -330,48 +322,47 @@
   }
 
   function replaceBoardLinks(boardId, links) {
-    var hit = findBoard(boardId);
+    const hit = findBoard(boardId);
     if (!hit) { return null; }
-    hit.board.links = links.map(function (link) {
-      return {
-        id: uid(),
-        url: link.url,
-        title: link.title || link.url,
-        description: link.description || '',
-        addedAt: Date.now()
-      };
-    });
+    hit.board.links = links.map(link => ({
+      id: uid(),
+      url: link.url,
+      title: link.title || link.url,
+      description: link.description || '',
+      addedAt: Date.now()
+    }));
     commit();
     return hit.board;
   }
 
   function updateLink(boardId, linkId, patch) {
-    var hit = findBoard(boardId);
+    const hit = findBoard(boardId);
     if (!hit) { return; }
-    var l = hit.board.links.find(function (x) { return x.id === linkId; });
+    const l = hit.board.links.find(x => x.id === linkId);
     if (l) { Object.assign(l, patch); commit(); }
   }
 
   function deleteLink(boardId, linkId) {
-    var hit = findBoard(boardId);
+    const hit = findBoard(boardId);
     if (!hit) { return; }
-    var i = hit.board.links.findIndex(function (x) { return x.id === linkId; });
+    const i = hit.board.links.findIndex(x => x.id === linkId);
     if (i < 0) { return; }
-    var removed = hit.board.links.splice(i, 1)[0];
+    const removed = hit.board.links.splice(i, 1)[0];
     state.trash.unshift({
       id: uid(), kind: 'link', label: removed.title,
-      payload: removed, boardId: boardId, at: Date.now()
+      payload: removed, boardId, at: Date.now()
     });
     commit();
   }
 
   function moveLink(fromBoardId, linkId, toBoardId, toIndex) {
-    var from = findBoard(fromBoardId), to = findBoard(toBoardId);
+    const from = findBoard(fromBoardId);
+    const to = findBoard(toBoardId);
     if (!from || !to) { return; }
-    var i = from.board.links.findIndex(function (x) { return x.id === linkId; });
+    const i = from.board.links.findIndex(x => x.id === linkId);
     if (i < 0) { return; }
-    var l = from.board.links.splice(i, 1)[0];
-    var at = toIndex;
+    const l = from.board.links.splice(i, 1)[0];
+    let at = toIndex;
     if (at === undefined || at === null || at > to.board.links.length) {
       at = to.board.links.length;
     }
@@ -380,16 +371,16 @@
   }
 
   function restoreTrash(entryId) {
-    var i = state.trash.findIndex(function (t) { return t.id === entryId; });
+    const i = state.trash.findIndex(t => t.id === entryId);
     if (i < 0) { return false; }
-    var e = state.trash[i];
+    const e = state.trash[i];
     if (e.kind === 'link') {
-      var hit = findBoard(e.boardId);
+      const hit = findBoard(e.boardId);
       if (!hit) { return false; }
       hit.board.links.push(e.payload);
     } else if (e.kind === 'board') {
-      var page = pageById(e.pageId) || activePage();
-      var col = Math.max(0, Math.min(page.columns.length - 1, e.col || 0));
+      const page = pageById(e.pageId) || activePage();
+      const col = Math.max(0, Math.min(page.columns.length - 1, e.col || 0));
       page.columns[col].push(e.payload);
     } else if (e.kind === 'page') {
       state.pages.push(e.payload);
@@ -400,7 +391,7 @@
   }
 
   function removeTrash(entryId) {
-    var i = state.trash.findIndex(function (t) { return t.id === entryId; });
+    const i = state.trash.findIndex(t => t.id === entryId);
     if (i >= 0) { state.trash.splice(i, 1); commit(); }
   }
 
@@ -425,12 +416,10 @@
   }
 
   function addUserWallpaper(wp) {
-    var existing = wp.sourceId && state.wallpapers.user.filter(function (w) {
-      return w.sourceId === wp.sourceId;
-    })[0];
+    const existing = wp.sourceId && state.wallpapers.user.filter(w => w.sourceId === wp.sourceId)[0];
     if (existing) { return existing; }
 
-    var entry = {
+    const entry = {
       id: wp.id || uid(),
       sourceId: wp.sourceId || null,
       name: wp.name || 'My Wallpaper',
@@ -446,22 +435,22 @@
   }
 
   function deleteUserWallpaper(id) {
-    state.wallpapers.user = state.wallpapers.user.filter(function (w) { return w.id !== id; });
+    state.wallpapers.user = state.wallpapers.user.filter(w => w.id !== id);
     commit();
   }
 
   function updateUserWallpaper(id, patch) {
-    var w = state.wallpapers.user.find(function (x) { return x.id === id; });
+    const w = state.wallpapers.user.find(x => x.id === id);
     if (w) { Object.assign(w, patch); commit(); }
   }
 
   function wallpaperById(id) {
-    return state.wallpapers.user.find(function (x) { return x.id === id; }) || null;
+    return state.wallpapers.user.find(x => x.id === id) || null;
   }
 
   function applyWallpaperToTheme(wp, mode) {
-    var target = mode || state.settings.theme;
-    var t = state.themes[target];
+    const target = mode || state.settings.theme;
+    const t = state.themes[target];
     t.wallpaperId = wp.id;
     t.wallpaperSrc = wp.src;
     t.wallpaperName = wp.name || '';
@@ -480,7 +469,7 @@
   }
 
   function importData(json) {
-    var parsed = JSON.parse(json);
+    const parsed = JSON.parse(json);
     state = migrate(parsed);
     commit();
     return state;
@@ -492,48 +481,48 @@
   }
 
   global.Store = {
-    COLS: COLS,
-    uid: uid,
-    load: load,
-    commit: commit,
-    subscribe: function (fn) { listeners.push(fn); },
+    COLS,
+    uid,
+    load,
+    commit,
+    subscribe(fn) { listeners.push(fn); },
     get state() { return state; },
-    activePage: activePage,
-    pageById: pageById,
-    findBoard: findBoard,
-    allBoards: allBoards,
-    currentTheme: currentTheme,
-    defaultThemeStyle: defaultThemeStyle,
-    defaultSettings: defaultSettings,
-    addPage: addPage,
-    renamePage: renamePage,
-    deletePage: deletePage,
-    setActivePage: setActivePage,
-    movePage: movePage,
-    addBoard: addBoard,
-    renameBoard: renameBoard,
-    toggleBoardCollapsed: toggleBoardCollapsed,
-    deleteBoard: deleteBoard,
-    moveBoard: moveBoard,
-    moveBoardToPage: moveBoardToPage,
-    addLink: addLink,
-    replaceBoardLinks: replaceBoardLinks,
-    updateLink: updateLink,
-    deleteLink: deleteLink,
-    moveLink: moveLink,
-    restoreTrash: restoreTrash,
-    removeTrash: removeTrash,
-    emptyTrash: emptyTrash,
-    setSetting: setSetting,
-    setTheme: setTheme,
-    updateThemeStyle: updateThemeStyle,
-    addUserWallpaper: addUserWallpaper,
-    deleteUserWallpaper: deleteUserWallpaper,
-    updateUserWallpaper: updateUserWallpaper,
-    wallpaperById: wallpaperById,
-    applyWallpaperToTheme: applyWallpaperToTheme,
-    exportData: exportData,
-    importData: importData,
-    resetAll: resetAll
+    activePage,
+    pageById,
+    findBoard,
+    allBoards,
+    currentTheme,
+    defaultThemeStyle,
+    defaultSettings,
+    addPage,
+    renamePage,
+    deletePage,
+    setActivePage,
+    movePage,
+    addBoard,
+    renameBoard,
+    toggleBoardCollapsed,
+    deleteBoard,
+    moveBoard,
+    moveBoardToPage,
+    addLink,
+    replaceBoardLinks,
+    updateLink,
+    deleteLink,
+    moveLink,
+    restoreTrash,
+    removeTrash,
+    emptyTrash,
+    setSetting,
+    setTheme,
+    updateThemeStyle,
+    addUserWallpaper,
+    deleteUserWallpaper,
+    updateUserWallpaper,
+    wallpaperById,
+    applyWallpaperToTheme,
+    exportData,
+    importData,
+    resetAll
   };
 })(typeof window !== 'undefined' ? window : globalThis);

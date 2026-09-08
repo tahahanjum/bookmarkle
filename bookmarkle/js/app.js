@@ -1,10 +1,10 @@
-(function () {
+(() => {
   'use strict';
 
-  var $ = function (s, r) { return (r || document).querySelector(s); };
-  var I = window.Icons;
+  const $ = (s, r) => (r || document).querySelector(s);
+  const I = window.Icons;
 
-  var ui = {
+  const ui = {
     searchTerm: '',
     searching: false,
     selecting: false,
@@ -22,7 +22,7 @@
     return typeof v === 'number' && isFinite(v) ? v : fallback;
   }
 
-  var CLOCK_FONTS = [
+  const CLOCK_FONTS = [
     { id: 'saira', label: 'Saira', family: 'Clock Saira', min: 50, max: 125, weight: 620 },
     { id: 'archivo', label: 'Archivo', family: 'Clock Archivo', min: 62, max: 125, weight: 640 },
     { id: 'encode', label: 'Encode Sans', family: 'Clock Encode', min: 75, max: 125, weight: 640 },
@@ -31,20 +31,19 @@
   ];
 
   function clockFontById(id) {
-    for (var i = 0; i < CLOCK_FONTS.length; i++) {
+    for (let i = 0; i < CLOCK_FONTS.length; i++) {
       if (CLOCK_FONTS[i].id === id) { return CLOCK_FONTS[i]; }
     }
     return CLOCK_FONTS[0];
   }
 
   function measureAxis(family, wdth) {
-    var el = document.createElement('span');
+    const el = document.createElement('span');
     el.style.cssText =
-      'position:absolute;left:-9999px;top:-9999px;white-space:pre;font-size:100px;' +
-      'font-family:"' + family + '";font-variation-settings:"wdth" ' + wdth + ';';
+      `position:absolute;left:-9999px;top:-9999px;white-space:pre;font-size:100px;font-family:"${family}";font-variation-settings:"wdth" ${wdth};`;
     el.textContent = '00:00';
     document.body.appendChild(el);
-    var w = el.getBoundingClientRect().width;
+    const w = el.getBoundingClientRect().width;
     el.remove();
     return w;
   }
@@ -52,52 +51,51 @@
   function calibrateClockFont(font) {
     if (font.k) { return font; }
     font.base = Math.min(font.max, Math.max(font.min, 100));
-    var w0 = measureAxis(font.family, font.base);
-    var wMin = measureAxis(font.family, font.min);
+    const w0 = measureAxis(font.family, font.base);
+    const wMin = measureAxis(font.family, font.min);
     if (!w0 || !wMin || font.min === font.base) { font.k = 0; return font; }
     font.k = (wMin / w0 - 1) / (font.min - font.base);
     return font;
   }
 
-  function calibrateAllClockFonts() {
+  async function calibrateAllClockFonts() {
     if (!document.fonts || !document.fonts.load) {
       CLOCK_FONTS.forEach(calibrateClockFont);
-      return Promise.resolve();
+      return;
     }
-    return Promise.all(CLOCK_FONTS.map(function (f) {
-      return document.fonts.load('100px "' + f.family + '"').catch(function () {});
-    })).then(function () {
-      CLOCK_FONTS.forEach(calibrateClockFont);
-    });
+    await Promise.all(
+      CLOCK_FONTS.map(f => document.fonts.load(`100px "${f.family}"`).catch(() => {}))
+    );
+    CLOCK_FONTS.forEach(calibrateClockFont);
   }
 
   function clockAxes(stretch, fontId) {
-    var font = calibrateClockFont(clockFontById(fontId));
-    var s = Math.max(0.1, num(stretch, 1));
-    var want = 1 / s;
+    const font = calibrateClockFont(clockFontById(fontId));
+    const s = Math.max(0.1, num(stretch, 1));
+    const want = 1 / s;
 
     if (!font.k) {
       return { wdth: font.base || 100, wght: font.weight, squeeze: Math.round(want * 1000) / 1000 };
     }
 
-    var wdth = font.base + (want - 1) / font.k;
+    let wdth = font.base + (want - 1) / font.k;
     wdth = Math.min(font.max, Math.max(font.min, wdth));
 
-    var got = 1 + (wdth - font.base) * font.k;
-    var squeeze = Math.min(1, want / got);
+    const got = 1 + (wdth - font.base) * font.k;
+    const squeeze = Math.min(1, want / got);
 
-    var wght = Math.round(Math.min(900, Math.max(100,
+    const wght = Math.round(Math.min(900, Math.max(100,
       font.weight + (font.base - wdth) * 1.8)));
 
     return {
       wdth: Math.round(wdth * 10) / 10,
-      wght: wght,
+      wght,
       squeeze: Math.round(squeeze * 1000) / 1000
     };
   }
 
   function writeClockAxes(root, stretch, fontId) {
-    var ax = clockAxes(stretch, fontId);
+    const ax = clockAxes(stretch, fontId);
     root.style.setProperty('--clock-wdth', ax.wdth);
     root.style.setProperty('--clock-wght', ax.wght);
     root.style.setProperty('--clock-squeeze', ax.squeeze);
@@ -110,101 +108,95 @@
   }
 
   function normalizeUrl(raw) {
-    var s = String(raw || '').trim();
+    let s = String(raw || '').trim();
     if (!s) { return ''; }
-    if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s)) { s = 'https://' + s; }
+    if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s)) { s = `https://${s}`; }
     try {
-      var u = new URL(s);
+      const u = new URL(s);
 
       if (u.pathname === '/' && !u.search && !u.hash) {
         return u.origin;
       }
       return u.href;
-    } catch (e) { return ''; }
+    } catch { return ''; }
   }
 
   function hostOf(url) {
-    try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return ''; }
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
   }
 
   function faviconUrl(url) {
-    var origin;
-    try { origin = new URL(url).origin; } catch (e) { return ''; }
+    let origin;
+    try { origin = new URL(url).origin; } catch { return ''; }
     if (!origin || origin === 'null') { return ''; }
-    return 'https://t1.gstatic.com/faviconV2'
-      + '?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&size=64'
-      + '&url=' + encodeURIComponent(origin);
+    return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&size=64&url=${encodeURIComponent(origin)}`;
   }
 
   function colorFor(str) {
-    var n = 0;
-    for (var i = 0; i < str.length; i++) { n = (n * 31 + str.charCodeAt(i)) % 360; }
-    return 'hsl(' + n + ' 52% 42%)';
+    let n = 0;
+    for (let i = 0; i < str.length; i++) { n = (n * 31 + str.charCodeAt(i)) % 360; }
+    return `hsl(${n} 52% 42%)`;
   }
 
   function hexToRgba(hex, alpha) {
-    var h = String(hex || '#1a1a1f').replace('#', '');
+    let h = String(hex || '#1a1a1f').replace('#', '');
     if (h.length === 3) { h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; }
-    var n = parseInt(h, 16);
+    let n = parseInt(h, 16);
     if (isNaN(n)) { n = 0x1a1a1f; }
-    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
   }
 
   function toast(msg, isErr) {
-    var host = $('#toasts');
-    var el = document.createElement('div');
-    el.className = 'toast' + (isErr ? ' err' : '');
+    const host = $('#toasts');
+    const el = document.createElement('div');
+    el.className = `toast${isErr ? ' err' : ''}`;
     el.textContent = msg;
     host.appendChild(el);
-    setTimeout(function () {
+    setTimeout(() => {
       el.style.transition = 'opacity .3s';
       el.style.opacity = '0';
-      setTimeout(function () { el.remove(); }, 320);
+      setTimeout(() => { el.remove(); }, 320);
     }, 2600);
   }
 
   function fetchTitle(url) {
-    return new Promise(function (resolve) {
-      var done = false;
-      var timer = setTimeout(function () { if (!done) { done = true; resolve(null); } }, 9000);
-      try {
-        chrome.runtime.sendMessage({ type: 'fetchTitle', url: url }, function (res) {
-          if (done) { return; }
-          done = true;
-          clearTimeout(timer);
-          if (chrome.runtime.lastError) { resolve(null); return; }
-          resolve(res && res.title ? res.title : null);
-        });
-      } catch (e) {
-        clearTimeout(timer);
-        resolve(null);
-      }
-    });
+    const { promise, resolve } = Promise.withResolvers();
+    const timer = setTimeout(() => resolve(null), 9000);
+    const finish = title => { clearTimeout(timer); resolve(title); };
+
+    try {
+      chrome.runtime.sendMessage({ type: 'fetchTitle', url }, res => {
+        finish(chrome.runtime.lastError ? null : res?.title || null);
+      });
+    } catch {
+      finish(null);
+    }
+    return promise;
   }
 
   function prettyNameFromUrl(url) {
-    var h = hostOf(url);
+    const h = hostOf(url);
     if (!h) { return url; }
-    var base = h.split('.')[0];
+    const base = h.split('.')[0];
     return base.charAt(0).toUpperCase() + base.slice(1);
   }
 
   function resolveSrc(src) {
     if (!src) { return ''; }
     if (/^(data:|blob:|https?:|chrome-extension:)/.test(src)) { return src; }
-    return chrome.runtime && chrome.runtime.getURL ? chrome.runtime.getURL(src) : src;
+    return chrome.runtime?.getURL ? chrome.runtime.getURL(src) : src;
   }
 
   function openUrl(url, forceNew) {
-    var newTab = forceNew || Store.state.settings.openInNewTab;
+    const newTab = forceNew || Store.state.settings.openInNewTab;
     if (newTab) { window.open(url, '_blank', 'noopener'); }
     else { window.location.href = url; }
   }
 
   function applyTheme() {
-    var s = Store.state.settings;
-    var t = Store.currentTheme();
-    var root = document.documentElement;
+    const s = Store.state.settings;
+    const t = Store.currentTheme();
+    const root = document.documentElement;
 
     root.setAttribute('data-mode', s.theme);
     root.setAttribute('data-compact', s.compactMode ? '1' : '0');
@@ -215,7 +207,7 @@
     root.style.setProperty('--clock-scale', num(s.clockScale, 1));
     root.style.setProperty('--clock-stretch', num(s.clockStretch, 1));
     root.style.setProperty('--clock-family',
-      '"' + clockFontById(s.clockFont).family + '"');
+      `"${clockFontById(s.clockFont).family}"`);
     root.style.setProperty('--clock-ink',
       s.clockColorMode === 'custom' ? (s.clockColor || '#ffffff') : t.primary);
     root.setAttribute('data-clock-glass', s.clockGlass ? '1' : '0');
@@ -227,95 +219,96 @@
     root.style.setProperty('--primary-soft', hexToRgba(t.primary, 0.16));
     root.style.setProperty('--on-primary', window.ColorUtil.onAccent(t.primary));
 
-    var opacity = typeof t.opacity === 'number' ? t.opacity : 0.5;
-    var blur = typeof t.blur === 'number' ? t.blur : 16;
-    root.style.setProperty('--board-blur', blur + 'px');
+    const opacity = typeof t.opacity === 'number' ? t.opacity : 0.5;
+    const blur = typeof t.blur === 'number' ? t.blur : 16;
+    root.style.setProperty('--board-blur', `${blur}px`);
     root.style.setProperty('--board-bg', hexToRgba(t.board, opacity));
-    root.style.setProperty('--board-filter', 'blur(' + blur + 'px) saturate(120%)');
-    root.style.setProperty('--panel-filter', 'blur(' + Math.max(blur, 14) + 'px) saturate(125%)');
+    root.style.setProperty('--board-filter', `blur(${blur}px) saturate(120%)`);
+    root.style.setProperty('--panel-filter', `blur(${Math.max(blur, 14)}px) saturate(125%)`);
 
-    var bg = $('#wallpaper');
+    const bg = $('#wallpaper');
     bg.style.backgroundColor = s.theme === 'light' ? '#efe9f2' : '#141418';
     bg.style.backgroundImage = t.wallpaperSrc
-      ? 'url("' + resolveSrc(t.wallpaperSrc).replace(/"/g, '%22') + '")'
+      ? `url("${resolveSrc(t.wallpaperSrc).replace(/"/g, '%22')}")`
       : 'none';
 
     document.body.classList.toggle('private', !!ui.private);
     document.body.classList.toggle('selecting', ui.selecting);
     document.body.classList.toggle('searching', ui.searching && !!ui.searchTerm);
 
-    var rail = $('#rail');
+    const rail = $('#rail');
     rail.classList.toggle('grouped', !!s.groupTools);
     rail.classList.toggle('expanded', ui.railExpanded);
   }
 
   function renderPages() {
-    var host = $('#pages');
+    const host = $('#pages');
     host.innerHTML = '';
-    var st = Store.state;
+    const st = Store.state;
 
-    st.pages.forEach(function (p, idx) {
-      var pill = document.createElement('div');
-      pill.className = 'page-pill' + (p.id === st.activePageId ? ' active' : '');
+    st.pages.forEach((p, idx) => {
+      const pill = document.createElement('div');
+      pill.className = `page-pill${p.id === st.activePageId ? ' active' : ''}`;
       pill.dataset.pageId = p.id;
 
-      var b = document.createElement('button');
-      b.className = 'page-tab';
-      b.textContent = p.name;
+      const tab = document.createElement('button');
+      tab.className = 'page-tab';
+      tab.textContent = p.name;
 
-      var caret = document.createElement('button');
+      const caret = document.createElement('button');
       caret.className = 'page-caret';
       caret.title = 'Page options';
       caret.innerHTML = '<svg viewBox="0 0 12 12" fill="currentColor"><path d="M2 4.2h8L6 9z"/></svg>';
 
-      pill.appendChild(b);
+      pill.appendChild(tab);
       pill.appendChild(caret);
 
-      b.addEventListener('click', function () { Store.setActivePage(p.id); });
+      tab.addEventListener('click', () => { Store.setActivePage(p.id); });
 
-      caret.addEventListener('click', function (e) {
+      caret.addEventListener('click', e => {
         e.stopPropagation();
         pill.classList.add('menu-open');
-        var r = pill.getBoundingClientRect();
-        pageMenu(r.left, r.bottom + 8, p, function () { pill.classList.remove('menu-open'); });
+        const r = pill.getBoundingClientRect();
+        pageMenu(r.left, r.bottom + 8, p, () => { pill.classList.remove('menu-open'); });
       });
 
-      pill.addEventListener('contextmenu', function (e) {
+      pill.addEventListener('contextmenu', e => {
         e.preventDefault();
         pill.classList.add('menu-open');
-        pageMenu(e.clientX, e.clientY, p, function () { pill.classList.remove('menu-open'); });
+        pageMenu(e.clientX, e.clientY, p, () => { pill.classList.remove('menu-open'); });
       });
 
-      var b = pill;
-      b.draggable = true;
+      pill.draggable = true;
 
-      b.addEventListener('dragstart', function (e) {
+      pill.addEventListener('dragstart', e => {
         startDrag({ kind: 'page', index: idx });
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', p.name);
       });
-      b.addEventListener('dragend', endDrag);
-      b.addEventListener('dragover', function (e) {
-        if (drag && drag.kind === 'page') { e.preventDefault(); b.classList.add('drag-over'); }
-        else if (drag && drag.kind === 'board') { e.preventDefault(); b.classList.add('drag-over'); }
+      pill.addEventListener('dragend', endDrag);
+      pill.addEventListener('dragover', e => {
+        if (drag && (drag.kind === 'page' || drag.kind === 'board')) {
+          e.preventDefault();
+          pill.classList.add('drag-over');
+        }
       });
-      b.addEventListener('dragleave', function () { b.classList.remove('drag-over'); });
-      b.addEventListener('drop', function (e) {
+      pill.addEventListener('dragleave', () => { pill.classList.remove('drag-over'); });
+      pill.addEventListener('drop', e => {
         e.preventDefault();
-        b.classList.remove('drag-over');
+        pill.classList.remove('drag-over');
         if (!drag) { return; }
         if (drag.kind === 'page') { Store.movePage(drag.index, idx); }
         else if (drag.kind === 'board') {
           Store.moveBoardToPage(drag.boardId, p.id);
-          toast('Board moved to "' + p.name + '"');
+          toast(`Board moved to "${p.name}"`);
         }
         endDrag();
       });
 
-      host.appendChild(b);
+      host.appendChild(pill);
     });
 
-    var add = document.createElement('button');
+    const add = document.createElement('button');
     add.className = 'page-add';
     add.title = 'Add page';
     add.innerHTML = I.svg('plusSm', 20);
@@ -333,67 +326,52 @@
       '<button class="btn" data-close>Cancel</button>' +
       '<button class="btn btn-primary" id="pg-create" style="flex:0 0 auto">Create Page</button>' +
       '</div></div>',
-      function (root) {
-        var input = $('#pg-name', root);
+      root => {
+        const input = $('#pg-name', root);
         input.focus();
         function create() {
-          var v = input.value.trim();
+          const v = input.value.trim();
           if (!v) { input.focus(); return; }
           Store.addPage(v);
           closeModal();
-          toast('Page "' + v + '" created');
+          toast(`Page "${v}" created`);
         }
         $('#pg-create', root).addEventListener('click', create);
-        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { create(); } });
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { create(); } });
       }
     );
   }
 
   function promptRenamePage(p) {
     openModal(
-      '<div class="modal">' +
-      '<h2>Rename Page</h2>' +
-      '<label>Page Name <span class="req">*</span></label>' +
-      '<input class="field" id="pg-name" maxlength="40" value="' + esc(p.name) + '">' +
-      '<div class="modal-actions">' +
-      '<button class="btn" data-close>Cancel</button>' +
-      '<button class="btn btn-primary" id="pg-save" style="flex:0 0 auto">Save</button>' +
-      '</div></div>',
-      function (root) {
-        var input = $('#pg-name', root);
+      `<div class="modal"><h2>Rename Page</h2><label>Page Name <span class="req">*</span></label><input class="field" id="pg-name" maxlength="40" value="${esc(p.name)}"><div class="modal-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="pg-save" style="flex:0 0 auto">Save</button></div></div>`,
+      root => {
+        const input = $('#pg-name', root);
         input.focus();
         input.select();
         function save() {
-          var v = input.value.trim();
+          const v = input.value.trim();
           if (v) { Store.renamePage(p.id, v); }
           closeModal();
         }
         $('#pg-save', root).addEventListener('click', save);
-        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { save(); } });
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { save(); } });
       }
     );
   }
 
   function boardCountOf(p) {
-    var n = 0;
-    p.columns.forEach(function (c) { n += c.length; });
+    let n = 0;
+    p.columns.forEach(c => { n += c.length; });
     return n;
   }
 
   function confirmDeletePage(p) {
-    var n = boardCountOf(p);
+    const n = boardCountOf(p);
     openModal(
-      '<div class="modal">' +
-      '<h2>Delete "' + esc(p.name) + '"?</h2>' +
-      '<div class="row-sub" style="font-size:15px;line-height:1.5">' +
-      'This will move the page and all ' + n + ' board' + (n === 1 ? '' : 's') +
-      ' to trash. You can restore them from the Trash panel.</div>' +
-      '<div class="modal-actions">' +
-      '<button class="btn" data-close>Cancel</button>' +
-      '<button class="btn btn-danger" id="pg-confirm" style="flex:0 0 auto">Delete</button>' +
-      '</div></div>',
-      function (root) {
-        $('#pg-confirm', root).addEventListener('click', function () {
+      `<div class="modal"><h2>Delete "${esc(p.name)}"?</h2><div class="row-sub" style="font-size:15px;line-height:1.5">This will move the page and all ${n} board${n === 1 ? '' : 's'} to trash. You can restore them from the Trash panel.</div><div class="modal-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-danger" id="pg-confirm" style="flex:0 0 auto">Delete</button></div></div>`,
+      root => {
+        $('#pg-confirm', root).addEventListener('click', () => {
           if (Store.deletePage(p.id)) { toast('Page moved to trash'); }
           else { toast('You need at least one page', true); }
           closeModal();
@@ -403,42 +381,36 @@
   }
 
   function sharePage(p) {
-    var lines = [p.name];
-    p.columns.forEach(function (col) {
-      col.forEach(function (b) {
+    const lines = [p.name];
+    p.columns.forEach(col => {
+      col.forEach(b => {
         lines.push('', b.title);
-        b.links.forEach(function (l) { lines.push('- ' + l.title + ' -> ' + l.url); });
+        b.links.forEach(l => { lines.push(`- ${l.title} -> ${l.url}`); });
       });
     });
-    var text = lines.join('\n');
+    const text = lines.join('\n');
     openModal(
-      '<div class="modal">' +
-      '<h2>Share Page</h2>' +
-      '<div class="row-sub" style="margin-bottom:14px">Every board and bookmark on "' + esc(p.name) + '".</div>' +
-      '<textarea class="field" id="sp-text" style="min-height:200px" readonly>' + esc(text) + '</textarea>' +
-      '<div class="modal-actions">' +
-      '<button class="btn" data-close>Close</button>' +
-      '<button class="btn btn-primary" id="sp-copy" style="flex:0 0 auto">Copy</button>' +
-      '</div></div>',
-      function (root) {
-        $('#sp-copy', root).addEventListener('click', function () {
-          navigator.clipboard.writeText(text).then(function () { toast('Page copied'); });
+      `<div class="modal"><h2>Share Page</h2><div class="row-sub" style="margin-bottom:14px">Every board and bookmark on "${esc(p.name)}".</div><textarea class="field" id="sp-text" style="min-height:200px" readonly>${esc(text)}</textarea><div class="modal-actions"><button class="btn" data-close>Close</button><button class="btn btn-primary" id="sp-copy" style="flex:0 0 auto">Copy</button></div></div>`,
+      root => {
+        $('#sp-copy', root).addEventListener('click', async () => {
+          await navigator.clipboard.writeText(text);
+          toast('Page copied');
         });
       }
     );
   }
 
   function pageMenu(x, y, p, onClose) {
-    var items = [
-      { icon: 'pencil', label: 'Rename', fn: function () { promptRenamePage(p); } },
-      { icon: 'share', label: 'Share Page', fn: function () { sharePage(p); } },
+    const items = [
+      { icon: 'pencil', label: 'Rename', fn() { promptRenamePage(p); } },
+      { icon: 'share', label: 'Share Page', fn() { sharePage(p); } },
       { sep: true },
-      { icon: 'trash', label: 'Delete', danger: true, fn: function () { confirmDeletePage(p); } }
+      { icon: 'trash', label: 'Delete', danger: true, fn() { confirmDeletePage(p); } }
     ];
     showMenu(x, y, items, onClose);
   }
 
-  var drag = null;
+  let drag = null;
 
   function startDrag(ctx) {
     drag = ctx;
@@ -448,13 +420,13 @@
   function endDrag() {
     drag = null;
     document.body.classList.remove('dragging');
-    document.querySelectorAll('.drop-before, .drop-after, .dragging').forEach(function (n) {
+    document.querySelectorAll('.drop-before, .drop-after, .dragging').forEach(n => {
       n.classList.remove('drop-before', 'drop-after', 'dragging');
     });
   }
 
   function visibleColumnCount() {
-    var w = window.innerWidth;
+    const w = window.innerWidth;
     if (w <= 620) { return 1; }
     if (w <= 900) { return 2; }
     if (w <= 1240) { return 3; }
@@ -462,37 +434,37 @@
   }
 
   function matchesSearch(board) {
-    var q = ui.searchTerm.toLowerCase();
+    const q = ui.searchTerm.toLowerCase();
     if (!q) { return { board: true, links: null }; }
-    var titleHit = board.title.toLowerCase().indexOf(q) >= 0;
-    var linkHits = board.links.filter(function (l) {
-      return (l.title || '').toLowerCase().indexOf(q) >= 0 ||
-             (l.url || '').toLowerCase().indexOf(q) >= 0 ||
-             (l.description || '').toLowerCase().indexOf(q) >= 0;
-    });
+    const titleHit = board.title.toLowerCase().includes(q);
+    const linkHits = board.links.filter(l =>
+      (l.title || '').toLowerCase().includes(q) ||
+      (l.url || '').toLowerCase().includes(q) ||
+      (l.description || '').toLowerCase().includes(q));
     return { board: titleHit || linkHits.length > 0, links: titleHit ? null : linkHits };
   }
 
   function renderGrid() {
-    var grid = $('#grid');
-    var page = Store.activePage();
-    var n = visibleColumnCount();
-    grid.style.gridTemplateColumns = 'repeat(' + n + ', minmax(0, 1fr))';
+    const grid = $('#grid');
+    const page = Store.activePage();
+    const n = visibleColumnCount();
+    grid.style.gridTemplateColumns = `repeat(${n}, minmax(0, 1fr))`;
     grid.innerHTML = '';
 
-    var buckets = [], i;
+    const buckets = [];
+    let i;
     for (i = 0; i < n; i++) { buckets.push([]); }
-    page.columns.forEach(function (col, ci) {
-      col.forEach(function (b) { buckets[ci % n].push({ board: b, dataCol: ci }); });
+    page.columns.forEach((col, ci) => {
+      col.forEach(b => { buckets[ci % n].push({ board: b, dataCol: ci }); });
     });
 
-    buckets.forEach(function (items, ri) {
-      var colEl = document.createElement('div');
+    buckets.forEach((items, ri) => {
+      const colEl = document.createElement('div');
       colEl.className = 'column';
       colEl.dataset.col = ri;
 
-      items.forEach(function (item) {
-        var hit = matchesSearch(item.board);
+      items.forEach(item => {
+        const hit = matchesSearch(item.board);
         if (ui.searchTerm && !hit.board) { return; }
         colEl.appendChild(renderBoard(item.board, item.dataCol, hit.links));
       });
@@ -500,21 +472,21 @@
       if (ui.addingBoard === ri) {
         colEl.appendChild(renderAddBoardForm(ri));
       } else {
-        var tail = document.createElement('div');
+        const tail = document.createElement('div');
         tail.className = 'column-tail';
-        var add = document.createElement('button');
+        const add = document.createElement('button');
         add.className = 'add-board';
-        add.innerHTML = I.svg('plus', 26) + '<span>Add Board</span>';
-        add.addEventListener('click', function () { ui.addingBoard = ri; render(); });
+        add.innerHTML = `${I.svg('plus', 26)}<span>Add Board</span>`;
+        add.addEventListener('click', () => { ui.addingBoard = ri; render(); });
         tail.appendChild(add);
         colEl.appendChild(tail);
       }
 
-      colEl.addEventListener('dragover', function (e) {
+      colEl.addEventListener('dragover', e => {
         if (!drag || drag.kind !== 'board') { return; }
         e.preventDefault();
       });
-      colEl.addEventListener('drop', function (e) {
+      colEl.addEventListener('drop', e => {
         if (!drag || drag.kind !== 'board') { return; }
         e.preventDefault();
         Store.moveBoard(drag.boardId, ri, undefined);
@@ -526,27 +498,23 @@
   }
 
   function renderAddBoardForm(col) {
-    var wrap = document.createElement('div');
+    const wrap = document.createElement('div');
     wrap.className = 'board';
     wrap.innerHTML =
-      '<div class="form-row">' +
-      '<input class="field" id="nb-name" placeholder="Board name" maxlength="60">' +
-      '<button class="btn btn-primary" id="nb-add" style="flex:0 0 auto">Add</button>' +
-      '<button class="icon-btn" id="nb-cancel">' + I.svg('x', 18) + '</button>' +
-      '</div>';
-    setTimeout(function () {
-      var input = $('#nb-name', wrap);
+      `<div class="form-row"><input class="field" id="nb-name" placeholder="Board name" maxlength="60"><button class="btn btn-primary" id="nb-add" style="flex:0 0 auto">Add</button><button class="icon-btn" id="nb-cancel">${I.svg('x', 18)}</button></div>`;
+    setTimeout(() => {
+      const input = $('#nb-name', wrap);
       if (!input) { return; }
       input.focus();
       function add() {
-        var v = input.value.trim();
+        const v = input.value.trim();
         if (!v) { input.focus(); return; }
         ui.addingBoard = null;
         Store.addBoard(col, v);
       }
       $('#nb-add', wrap).addEventListener('click', add);
-      $('#nb-cancel', wrap).addEventListener('click', function () { ui.addingBoard = null; render(); });
-      input.addEventListener('keydown', function (e) {
+      $('#nb-cancel', wrap).addEventListener('click', () => { ui.addingBoard = null; render(); });
+      input.addEventListener('keydown', e => {
         if (e.key === 'Enter') { add(); }
         if (e.key === 'Escape') { ui.addingBoard = null; render(); }
       });
@@ -555,49 +523,40 @@
   }
 
   function renderBoard(board, dataCol, filteredLinks) {
-    var st = Store.state;
-    var el = document.createElement('section');
-    el.className = 'board' +
-      (ui.addingLink === board.id ? ' adding' : '') +
-      (board.collapsed && !ui.searchTerm ? ' collapsed' : '');
+    const st = Store.state;
+    const el = document.createElement('section');
+    el.className = `board${ui.addingLink === board.id ? ' adding' : ''}${board.collapsed && !ui.searchTerm ? ' collapsed' : ''}`;
     el.dataset.boardId = board.id;
 
-    var head = document.createElement('div');
+    const head = document.createElement('div');
     head.className = 'board-head';
     head.innerHTML =
-      '<button class="board-collapse" data-act="collapse" title="' +
-      (board.collapsed ? 'Expand board' : 'Collapse board') + '">' + I.svg('chevron', 15) + '</button>' +
-      '<div class="board-title">' + esc(board.title) + '</div>' +
-      '<div class="board-actions">' +
-      '<button class="icon-btn' + (ui.addingLink === board.id ? ' on' : '') +
-      '" data-act="add" title="Add link">' + I.svg('link', 17) + '</button>' +
-      '<button class="icon-btn" data-act="menu" title="Board menu">' + I.svg('dots', 17) + '</button>' +
-      '</div>';
+      `<button class="board-collapse" data-act="collapse" title="${board.collapsed ? 'Expand board' : 'Collapse board'}">${I.svg('chevron', 15)}</button><div class="board-title">${esc(board.title)}</div><div class="board-actions"><button class="icon-btn${ui.addingLink === board.id ? ' on' : ''}" data-act="add" title="Add link">${I.svg('link', 17)}</button><button class="icon-btn" data-act="menu" title="Board menu">${I.svg('dots', 17)}</button></div>`;
     el.appendChild(head);
 
-    head.querySelector('[data-act="collapse"]').addEventListener('click', function (e) {
+    head.querySelector('[data-act="collapse"]').addEventListener('click', e => {
       e.stopPropagation();
       Store.toggleBoardCollapsed(board.id);
     });
 
-    var rule = document.createElement('div');
+    const rule = document.createElement('div');
     rule.className = 'board-rule';
     el.appendChild(rule);
 
-    var list = document.createElement('div');
+    const list = document.createElement('div');
     list.className = 'links';
 
-    var links = filteredLinks || board.links;
-    var limited = false;
+    let links = filteredLinks || board.links;
+    let limited = false;
     if (!ui.searchTerm && st.settings.hideExtraBookmarks && !ui.expanded[board.id] && links.length > 8) {
       links = links.slice(0, 8);
       limited = true;
     }
 
-    links.forEach(function (l) { list.appendChild(renderLink(board, l)); });
+    links.forEach(l => { list.appendChild(renderLink(board, l)); });
 
     if (!links.length) {
-      var empty = document.createElement('div');
+      const empty = document.createElement('div');
       empty.className = 'board-empty';
       empty.textContent = ui.searchTerm ? 'No matches in this board.' : 'No bookmarks yet.';
       list.appendChild(empty);
@@ -605,37 +564,37 @@
     el.appendChild(list);
 
     if (limited) {
-      var more = document.createElement('button');
+      const more = document.createElement('button');
       more.className = 'board-more';
-      more.textContent = 'Show ' + (board.links.length - 8) + ' more';
-      more.addEventListener('click', function () { ui.expanded[board.id] = true; render(); });
+      more.textContent = `Show ${board.links.length - 8} more`;
+      more.addEventListener('click', () => { ui.expanded[board.id] = true; render(); });
       el.appendChild(more);
     } else if (st.settings.hideExtraBookmarks && ui.expanded[board.id] && board.links.length > 8) {
-      var less = document.createElement('button');
+      const less = document.createElement('button');
       less.className = 'board-more';
       less.textContent = 'Show less';
-      less.addEventListener('click', function () { ui.expanded[board.id] = false; render(); });
+      less.addEventListener('click', () => { ui.expanded[board.id] = false; render(); });
       el.appendChild(less);
     }
 
     if (ui.addingLink === board.id) { el.appendChild(renderAddLinkForm(board)); }
 
-    head.querySelector('[data-act="add"]').addEventListener('click', function () {
+    head.querySelector('[data-act="add"]').addEventListener('click', () => {
       ui.addingLink = board.id;
       ui.addStep = null;
       render();
     });
-    head.querySelector('[data-act="menu"]').addEventListener('click', function (e) {
+    head.querySelector('[data-act="menu"]').addEventListener('click', e => {
       e.stopPropagation();
       el.classList.add('menu-open');
-      var r = e.currentTarget.getBoundingClientRect();
-      boardMenu(r.right, r.bottom + 6, board, function () { el.classList.remove('menu-open'); });
+      const r = e.currentTarget.getBoundingClientRect();
+      boardMenu(r.right, r.bottom + 6, board, () => { el.classList.remove('menu-open'); });
     });
 
-    head.querySelector('.board-title').addEventListener('dblclick', function () { editBoardTitle(el, board); });
+    head.querySelector('.board-title').addEventListener('dblclick', () => { editBoardTitle(el, board); });
 
     el.draggable = true;
-    el.addEventListener('dragstart', function (e) {
+    el.addEventListener('dragstart', e => {
       if (e.target.closest('.link') || e.target.closest('input') || e.target.closest('textarea')) {
         e.preventDefault();
         return;
@@ -646,23 +605,23 @@
       e.dataTransfer.setData('text/plain', board.title);
     });
     el.addEventListener('dragend', endDrag);
-    el.addEventListener('dragover', function (e) {
+    el.addEventListener('dragover', e => {
       if (!drag || drag.kind !== 'board' || drag.boardId === board.id) { return; }
       e.preventDefault();
       e.stopPropagation();
-      var r = el.getBoundingClientRect();
-      var before = e.clientY < r.top + r.height / 2;
+      const r = el.getBoundingClientRect();
+      const before = e.clientY < r.top + r.height / 2;
       el.classList.toggle('drop-before', before);
       el.classList.toggle('drop-after', !before);
     });
-    el.addEventListener('dragleave', function () { el.classList.remove('drop-before', 'drop-after'); });
-    el.addEventListener('drop', function (e) {
+    el.addEventListener('dragleave', () => { el.classList.remove('drop-before', 'drop-after'); });
+    el.addEventListener('drop', e => {
       if (!drag || drag.kind !== 'board' || drag.boardId === board.id) { return; }
       e.preventDefault();
       e.stopPropagation();
-      var before = el.classList.contains('drop-before');
+      const before = el.classList.contains('drop-before');
       el.classList.remove('drop-before', 'drop-after');
-      var target = Store.findBoard(board.id);
+      const target = Store.findBoard(board.id);
       if (target) { Store.moveBoard(drag.boardId, target.col, target.index + (before ? 0 : 1)); }
       endDrag();
     });
@@ -671,57 +630,46 @@
   }
 
   function editBoardTitle(boardEl, board) {
-    var titleEl = boardEl.querySelector('.board-title');
-    var input = document.createElement('input');
+    const titleEl = boardEl.querySelector('.board-title');
+    const input = document.createElement('input');
     input.className = 'board-title-input';
     input.value = board.title;
     input.maxLength = 60;
     titleEl.replaceWith(input);
     input.focus();
     input.select();
-    var done = false;
+    let done = false;
     function commit() {
       if (done) { return; }
       done = true;
-      var v = input.value.trim();
+      const v = input.value.trim();
       if (v && v !== board.title) { Store.renameBoard(board.id, v); }
       else { render(); }
     }
     input.addEventListener('blur', commit);
-    input.addEventListener('keydown', function (e) {
+    input.addEventListener('keydown', e => {
       if (e.key === 'Enter') { commit(); }
       if (e.key === 'Escape') { done = true; render(); }
     });
   }
 
   function renderLink(board, l) {
-    var st = Store.state;
-    var a = document.createElement('a');
-    a.className = 'link' + (ui.selection[l.id] ? ' selected' : '');
+    const st = Store.state;
+    const a = document.createElement('a');
+    a.className = `link${ui.selection[l.id] ? ' selected' : ''}`;
     a.href = l.url;
     a.dataset.linkId = l.id;
     if (st.settings.openInNewTab) { a.target = '_blank'; a.rel = 'noopener'; }
 
-    var iconHtml = '<img class="link-icon" src="' + esc(faviconUrl(l.url)) + '" alt="" ' +
-      'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'">' +
-      '<span class="link-fallback" style="display:none;background:' + colorFor(hostOf(l.url) || l.title) + '">' +
-      esc((l.title || 'L').trim().charAt(0)) + '</span>';
+    const iconHtml = `<img class="link-icon" src="${esc(faviconUrl(l.url))}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><span class="link-fallback" style="display:none;background:${colorFor(hostOf(l.url) || l.title)}">${esc((l.title || 'L').trim().charAt(0))}</span>`;
 
-    var descHtml = (st.settings.showDescriptions && l.description)
-      ? '<div class="link-desc">' + esc(l.description) + '</div>' : '';
+    const descHtml = (st.settings.showDescriptions && l.description)
+      ? `<div class="link-desc">${esc(l.description)}</div>` : '';
 
     a.innerHTML =
-      '<span class="link-check">' + I.svg('check', 12) + '</span>' +
-      iconHtml +
-      '<span class="link-body">' +
-      '<div class="link-title">' + esc(l.title || l.url) + '</div>' + descHtml +
-      '</span>' +
-      '<span class="link-tools">' +
-      '<button class="icon-btn" data-act="edit" title="Edit">' + I.svg('pencil', 14) + '</button>' +
-      '<button class="icon-btn" data-act="del" title="Remove">' + I.svg('trash', 14) + '</button>' +
-      '</span>';
+      `<span class="link-check">${I.svg('check', 12)}</span>${iconHtml}<span class="link-body"><div class="link-title">${esc(l.title || l.url)}</div>${descHtml}</span><span class="link-tools"><button class="icon-btn" data-act="edit" title="Edit">${I.svg('pencil', 14)}</button><button class="icon-btn" data-act="del" title="Remove">${I.svg('trash', 14)}</button></span>`;
 
-    a.addEventListener('click', function (e) {
+    a.addEventListener('click', e => {
       if (e.target.closest('[data-act]')) { e.preventDefault(); return; }
       if (ui.selecting) {
         e.preventDefault();
@@ -731,29 +679,30 @@
       }
     });
 
-    a.addEventListener('contextmenu', function (e) {
+    a.addEventListener('contextmenu', e => {
       e.preventDefault();
       showMenu(e.clientX, e.clientY, [
-        { icon: 'external', label: 'Open in new tab', fn: function () { window.open(l.url, '_blank', 'noopener'); } },
-        { icon: 'link', label: 'Copy link', fn: function () {
-          navigator.clipboard.writeText(l.url).then(function () { toast('Link copied'); });
+        { icon: 'external', label: 'Open in new tab', fn() { window.open(l.url, '_blank', 'noopener'); } },
+        { icon: 'link', label: 'Copy link', async fn() {
+          await navigator.clipboard.writeText(l.url);
+          toast('Link copied');
         } },
-        { icon: 'refresh', label: 'Fetch title', fn: function () { refetchOne(board.id, l); } },
-        { icon: 'pencil', label: 'Edit bookmark', fn: function () { editLink(board, l); } },
+        { icon: 'refresh', label: 'Fetch title', fn() { refetchOne(board.id, l); } },
+        { icon: 'pencil', label: 'Edit bookmark', fn() { editLink(board, l); } },
         { sep: true },
-        { icon: 'trash', label: 'Remove', danger: true, fn: function () {
+        { icon: 'trash', label: 'Remove', danger: true, fn() {
           Store.deleteLink(board.id, l.id);
           toast('Bookmark moved to trash');
         } }
       ]);
     });
 
-    a.querySelector('[data-act="edit"]').addEventListener('click', function (e) {
+    a.querySelector('[data-act="edit"]').addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
       editLink(board, l);
     });
-    a.querySelector('[data-act="del"]').addEventListener('click', function (e) {
+    a.querySelector('[data-act="del"]').addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
       Store.deleteLink(board.id, l.id);
@@ -761,7 +710,7 @@
     });
 
     a.draggable = true;
-    a.addEventListener('dragstart', function (e) {
+    a.addEventListener('dragstart', e => {
       e.stopPropagation();
       startDrag({ kind: 'link', boardId: board.id, linkId: l.id });
       a.classList.add('dragging');
@@ -769,25 +718,25 @@
       e.dataTransfer.setData('text/plain', l.url);
     });
     a.addEventListener('dragend', endDrag);
-    a.addEventListener('dragover', function (e) {
+    a.addEventListener('dragover', e => {
       if (!drag || drag.kind !== 'link' || drag.linkId === l.id) { return; }
       e.preventDefault();
       e.stopPropagation();
-      var r = a.getBoundingClientRect();
-      var before = e.clientY < r.top + r.height / 2;
+      const r = a.getBoundingClientRect();
+      const before = e.clientY < r.top + r.height / 2;
       a.classList.toggle('drop-before', before);
       a.classList.toggle('drop-after', !before);
     });
-    a.addEventListener('dragleave', function () { a.classList.remove('drop-before', 'drop-after'); });
-    a.addEventListener('drop', function (e) {
+    a.addEventListener('dragleave', () => { a.classList.remove('drop-before', 'drop-after'); });
+    a.addEventListener('drop', e => {
       if (!drag || drag.kind !== 'link' || drag.linkId === l.id) { return; }
       e.preventDefault();
       e.stopPropagation();
-      var before = a.classList.contains('drop-before');
+      const before = a.classList.contains('drop-before');
       a.classList.remove('drop-before', 'drop-after');
-      var target = Store.findBoard(board.id);
+      const target = Store.findBoard(board.id);
       if (!target) { return; }
-      var idx = target.board.links.findIndex(function (x) { return x.id === l.id; });
+      const idx = target.board.links.findIndex(x => x.id === l.id);
       Store.moveLink(drag.boardId, drag.linkId, board.id, idx + (before ? 0 : 1));
       endDrag();
     });
@@ -795,17 +744,17 @@
     return a;
   }
 
-  var DESC_MAX = 2000;
-  var SUPPORT_EMAIL = 'support.bookmarkle@gmail.com';
+  const DESC_MAX = 2000;
+  const SUPPORT_EMAIL = 'support.bookmarkle@gmail.com';
 
   function autoGrow(el, minRows) {
-    var min = (minRows || 1) * 22 + 22;
+    const min = (minRows || 1) * 22 + 22;
     el.style.height = 'auto';
-    el.style.height = Math.max(min, el.scrollHeight) + 'px';
+    el.style.height = `${Math.max(min, el.scrollHeight)}px`;
   }
 
   function renderAddLinkForm(board) {
-    var wrap = document.createElement('div');
+    const wrap = document.createElement('div');
     wrap.className = 'link-form';
 
     if (!ui.addStep) {
@@ -816,20 +765,20 @@
         '<button class="lf-btn lf-btn-cancel" id="al-cancel">Cancel</button>' +
         '</div>';
 
-      setTimeout(function () {
-        var input = $('#al-url', wrap);
+      setTimeout(() => {
+        const input = $('#al-url', wrap);
         if (!input) { return; }
         input.focus();
-        var btn = $('#al-next', wrap);
+        const btn = $('#al-next', wrap);
 
         function next() {
-          var url = normalizeUrl(input.value);
+          const url = normalizeUrl(input.value);
           if (!url) { toast('That does not look like a URL', true); input.focus(); return; }
           btn.disabled = true;
           btn.textContent = 'Fetching title...';
-          fetchTitle(url).then(function (title) {
+          fetchTitle(url).then(title => {
             ui.addStep = {
-              url: url,
+              url,
               title: title || prettyNameFromUrl(url),
               description: ''
             };
@@ -839,7 +788,7 @@
 
         btn.addEventListener('click', next);
         $('#al-cancel', wrap).addEventListener('click', cancelAdd);
-        input.addEventListener('keydown', function (e) {
+        input.addEventListener('keydown', e => {
           if (e.key === 'Enter') { e.preventDefault(); next(); }
           if (e.key === 'Escape') { cancelAdd(); }
         });
@@ -848,21 +797,14 @@
       return wrap;
     }
 
-    var step = ui.addStep;
+    const step = ui.addStep;
     wrap.innerHTML =
-      '<input class="lf-field lf-url" id="al-url2" value="' + esc(step.url) + '" spellcheck="false">' +
-      '<textarea class="lf-field lf-area" id="al-title" rows="1" maxlength="300" placeholder="Title">' +
-      esc(step.title) + '</textarea>' +
-      '<textarea class="lf-field lf-area" id="al-desc" rows="2" maxlength="' + DESC_MAX +
-      '" placeholder="Optional description (shown below title)">' + esc(step.description) + '</textarea>' +
-      '<div class="lf-count" id="al-count">' + (DESC_MAX - step.description.length) + '</div>' +
-      '<div class="lf-actions">' +
-      '<button class="lf-btn lf-btn-primary" id="al-save">Add Link</button>' +
-      '<button class="lf-btn lf-btn-cancel" id="al-cancel">Cancel</button>' +
-      '</div>';
+      `<input class="lf-field lf-url" id="al-url2" value="${esc(step.url)}" spellcheck="false"><textarea class="lf-field lf-area" id="al-title" rows="1" maxlength="300" placeholder="Title">${esc(step.title)}</textarea><textarea class="lf-field lf-area" id="al-desc" rows="2" maxlength="${DESC_MAX}" placeholder="Optional description (shown below title)">${esc(step.description)}</textarea><div class="lf-count" id="al-count">${DESC_MAX - step.description.length}</div><div class="lf-actions"><button class="lf-btn lf-btn-primary" id="al-save">Add Link</button><button class="lf-btn lf-btn-cancel" id="al-cancel">Cancel</button></div>`;
 
-    setTimeout(function () {
-      var u = $('#al-url2', wrap), t = $('#al-title', wrap), d = $('#al-desc', wrap);
+    setTimeout(() => {
+      const u = $('#al-url2', wrap);
+      const t = $('#al-title', wrap);
+      const d = $('#al-desc', wrap);
       if (!t) { return; }
 
       autoGrow(t, 1);
@@ -870,16 +812,16 @@
       t.focus();
       t.select();
 
-      t.addEventListener('input', function () { autoGrow(t, 1); });
-      d.addEventListener('input', function () {
+      t.addEventListener('input', () => { autoGrow(t, 1); });
+      d.addEventListener('input', () => {
         autoGrow(d, 2);
         $('#al-count', wrap).textContent = DESC_MAX - d.value.length;
       });
 
       function save() {
-        var url = normalizeUrl(u.value) || step.url;
+        const url = normalizeUrl(u.value) || step.url;
         Store.addLink(board.id, {
-          url: url,
+          url,
           title: t.value.trim() || url,
           description: d.value.trim()
         });
@@ -890,13 +832,13 @@
       $('#al-save', wrap).addEventListener('click', save);
       $('#al-cancel', wrap).addEventListener('click', cancelAdd);
 
-      [u, t].forEach(function (el) {
-        el.addEventListener('keydown', function (e) {
+      [u, t].forEach(el => {
+        el.addEventListener('keydown', e => {
           if (e.key === 'Enter') { e.preventDefault(); save(); }
           if (e.key === 'Escape') { cancelAdd(); }
         });
       });
-      d.addEventListener('keydown', function (e) {
+      d.addEventListener('keydown', e => {
         if (e.key === 'Escape') { cancelAdd(); }
       });
     }, 0);
@@ -912,36 +854,25 @@
 
   function editLink(board, l) {
     openModal(
-      '<div class="modal">' +
-      '<h2>Edit Bookmark</h2>' +
-      '<label>Title</label>' +
-      '<input class="field" id="ed-title" value="' + esc(l.title) + '" maxlength="200">' +
-      '<label style="margin-top:16px">URL</label>' +
-      '<input class="field" id="ed-url" value="' + esc(l.url) + '">' +
-      '<label style="margin-top:16px">Description</label>' +
-      '<textarea class="field" id="ed-desc" maxlength="2000" placeholder="Optional note shown under the title">' + esc(l.description || '') + '</textarea>' +
-      '<div class="field-count"><span id="ed-count">' + (l.description || '').length + '</span>/2000</div>' +
-      '<div class="modal-actions">' +
-      '<button class="btn" id="ed-fetch" style="margin-right:auto">Fetch title</button>' +
-      '<button class="btn" data-close>Cancel</button>' +
-      '<button class="btn btn-primary" id="ed-save" style="flex:0 0 auto">Save</button>' +
-      '</div></div>',
-      function (root) {
-        var t = $('#ed-title', root), u = $('#ed-url', root), d = $('#ed-desc', root);
+      `<div class="modal"><h2>Edit Bookmark</h2><label>Title</label><input class="field" id="ed-title" value="${esc(l.title)}" maxlength="200"><label style="margin-top:16px">URL</label><input class="field" id="ed-url" value="${esc(l.url)}"><label style="margin-top:16px">Description</label><textarea class="field" id="ed-desc" maxlength="2000" placeholder="Optional note shown under the title">${esc(l.description || '')}</textarea><div class="field-count"><span id="ed-count">${(l.description || '').length}</span>/2000</div><div class="modal-actions"><button class="btn" id="ed-fetch" style="margin-right:auto">Fetch title</button><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="ed-save" style="flex:0 0 auto">Save</button></div></div>`,
+      root => {
+        const t = $('#ed-title', root);
+        const u = $('#ed-url', root);
+        const d = $('#ed-desc', root);
         t.focus();
-        d.addEventListener('input', function () { $('#ed-count', root).textContent = d.value.length; });
+        d.addEventListener('input', () => { $('#ed-count', root).textContent = d.value.length; });
         $('#ed-fetch', root).addEventListener('click', function () {
-          var btn = this;
+          const btn = this;
           btn.disabled = true;
           btn.textContent = 'Fetching...';
-          fetchTitle(normalizeUrl(u.value)).then(function (title) {
+          fetchTitle(normalizeUrl(u.value)).then(title => {
             btn.disabled = false;
             btn.textContent = 'Fetch title';
             if (title) { t.value = title; }
             else { toast('Could not read that page title', true); }
           });
         });
-        $('#ed-save', root).addEventListener('click', function () {
+        $('#ed-save', root).addEventListener('click', () => {
           Store.updateLink(board.id, l.id, {
             title: t.value.trim() || l.url,
             url: normalizeUrl(u.value) || l.url,
@@ -956,8 +887,8 @@
 
   function refetchOne(boardId, l) {
     toast('Fetching title...');
-    fetchTitle(l.url).then(function (title) {
-      if (title) { Store.updateLink(boardId, l.id, { title: title }); toast('Title updated'); }
+    fetchTitle(l.url).then(title => {
+      if (title) { Store.updateLink(boardId, l.id, { title }); toast('Title updated'); }
       else { toast('Could not read that page title', true); }
     });
   }
@@ -965,27 +896,27 @@
   function boardMenu(x, y, board, onClose) {
     showMenu(x, y, [
       {
-        icon: 'external', label: 'Open All Links', fn: function () {
+        icon: 'external', label: 'Open All Links', fn() {
           if (!board.links.length) { toast('This board is empty', true); return; }
-          board.links.forEach(function (l) { window.open(l.url, '_blank', 'noopener'); });
-          toast('Opened ' + board.links.length + ' links');
+          board.links.forEach(l => { window.open(l.url, '_blank', 'noopener'); });
+          toast(`Opened ${board.links.length} links`);
         }
       },
       {
-        icon: 'refresh', label: 'Fetch All Titles', fn: function () { fetchAllTitles(board); }
+        icon: 'refresh', label: 'Fetch All Titles', fn() { fetchAllTitles(board); }
       },
       {
-        icon: 'pencil', label: 'Edit Board', fn: function () {
-          var el = document.querySelector('[data-board-id="' + board.id + '"]');
+        icon: 'pencil', label: 'Edit Board', fn() {
+          const el = document.querySelector(`[data-board-id="${board.id}"]`);
           if (el) { editBoardTitle(el, board); }
         }
       },
       {
-        icon: 'share', label: 'Share Board', fn: function () { shareBoard(board); }
+        icon: 'share', label: 'Share Board', fn() { shareBoard(board); }
       },
       { sep: true },
       {
-        icon: 'trash', label: 'Delete Board', danger: true, fn: function () {
+        icon: 'trash', label: 'Delete Board', danger: true, fn() {
           Store.deleteBoard(board.id);
           toast('Board moved to trash');
         }
@@ -995,43 +926,36 @@
 
   function fetchAllTitles(board) {
     if (!board.links.length) { toast('This board is empty', true); return; }
-    toast('Fetching ' + board.links.length + ' titles...');
-    var done = 0, changed = 0;
-    board.links.forEach(function (l) {
-      fetchTitle(l.url).then(function (title) {
+    toast(`Fetching ${board.links.length} titles...`);
+    let done = 0;
+    let changed = 0;
+    board.links.forEach(l => {
+      fetchTitle(l.url).then(title => {
         done++;
-        if (title && title !== l.title) { Store.updateLink(board.id, l.id, { title: title }); changed++; }
+        if (title && title !== l.title) { Store.updateLink(board.id, l.id, { title }); changed++; }
         if (done === board.links.length) {
-          toast(changed ? 'Updated ' + changed + ' title' + (changed > 1 ? 's' : '') : 'All titles were already current');
+          toast(changed ? `Updated ${changed} title${changed > 1 ? 's' : ''}` : 'All titles were already current');
         }
       });
     });
   }
 
   function shareBoard(board) {
-    var text = board.title + '\n' + board.links.map(function (l) {
-      return '- ' + l.title + ' -> ' + l.url;
-    }).join('\n');
-    var json = JSON.stringify({ bookmarkle: 1, board: board }, null, 2);
+    const text = `${board.title}\n${board.links.map(l => `- ${l.title} -> ${l.url}`).join('\n')}`;
+    const json = JSON.stringify({ bookmarkle: 1, board }, null, 2);
     openModal(
-      '<div class="modal">' +
-      '<h2>Share Board</h2>' +
-      '<div class="row-sub" style="margin-bottom:14px">Copy this board as a plain list, or as JSON another Bookmarkle can import.</div>' +
-      '<textarea class="field" id="sh-text" style="min-height:190px" readonly>' + esc(text) + '</textarea>' +
-      '<div class="modal-actions">' +
-      '<button class="btn" id="sh-json" style="margin-right:auto">Show JSON</button>' +
-      '<button class="btn" data-close>Close</button>' +
-      '<button class="btn btn-primary" id="sh-copy" style="flex:0 0 auto">Copy</button>' +
-      '</div></div>',
-      function (root) {
-        var ta = $('#sh-text', root), showingJson = false;
+      `<div class="modal"><h2>Share Board</h2><div class="row-sub" style="margin-bottom:14px">Copy this board as a plain list, or as JSON another Bookmarkle can import.</div><textarea class="field" id="sh-text" style="min-height:190px" readonly>${esc(text)}</textarea><div class="modal-actions"><button class="btn" id="sh-json" style="margin-right:auto">Show JSON</button><button class="btn" data-close>Close</button><button class="btn btn-primary" id="sh-copy" style="flex:0 0 auto">Copy</button></div></div>`,
+      root => {
+        const ta = $('#sh-text', root);
+        let showingJson = false;
         $('#sh-json', root).addEventListener('click', function () {
           showingJson = !showingJson;
           ta.value = showingJson ? json : text;
           this.textContent = showingJson ? 'Show list' : 'Show JSON';
         });
-        $('#sh-copy', root).addEventListener('click', function () {
-          navigator.clipboard.writeText(ta.value).then(function () { toast('Copied to clipboard'); });
+        $('#sh-copy', root).addEventListener('click', async () => {
+          await navigator.clipboard.writeText(ta.value);
+          toast('Copied to clipboard');
         });
       }
     );
@@ -1039,32 +963,32 @@
 
   function showMenu(x, y, items, onClose, opts) {
     closeMenu();
-    var m = document.createElement('div');
+    const m = document.createElement('div');
     m.className = 'menu';
-    items.forEach(function (it) {
+    items.forEach(it => {
       if (it.sep) {
-        var s = document.createElement('div');
+        const s = document.createElement('div');
         s.className = 'menu-sep';
         m.appendChild(s);
         return;
       }
-      var b = document.createElement('button');
-      b.className = 'menu-item' + (it.danger ? ' danger' : '');
-      b.innerHTML = I.svg(it.icon, 17) + '<span>' + esc(it.label) + '</span>';
-      b.addEventListener('click', function () { closeMenu(); it.fn(); });
+      const b = document.createElement('button');
+      b.className = `menu-item${it.danger ? ' danger' : ''}`;
+      b.innerHTML = `${I.svg(it.icon, 17)}<span>${esc(it.label)}</span>`;
+      b.addEventListener('click', () => { closeMenu(); it.fn(); });
       m.appendChild(b);
     });
     document.body.appendChild(m);
 
-    var r = m.getBoundingClientRect();
-    var left = (opts && opts.alignRight) ? x - r.width : x;
+    const r = m.getBoundingClientRect();
+    let left = opts?.alignRight ? x - r.width : x;
     left = Math.max(8, Math.min(left, window.innerWidth - r.width - 8));
-    var top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8));
-    m.style.left = left + 'px';
-    m.style.top = top + 'px';
+    const top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8));
+    m.style.left = `${left}px`;
+    m.style.top = `${top}px`;
 
     m._onClose = onClose;
-    setTimeout(function () { document.addEventListener('mousedown', outsideMenu); }, 0);
+    setTimeout(() => { document.addEventListener('mousedown', outsideMenu); }, 0);
   }
 
   function outsideMenu(e) {
@@ -1073,18 +997,18 @@
 
   function closeMenu() {
     document.removeEventListener('mousedown', outsideMenu);
-    document.querySelectorAll('.menu').forEach(function (m) {
+    document.querySelectorAll('.menu').forEach(m => {
       if (m._onClose) { m._onClose(); }
       m.remove();
     });
-    document.querySelectorAll('.board.menu-open').forEach(function (b) { b.classList.remove('menu-open'); });
+    document.querySelectorAll('.board.menu-open').forEach(b => { b.classList.remove('menu-open'); });
   }
 
   function openModal(html, wire) {
-    var ov = $('#overlay');
+    const ov = $('#overlay');
     $('#overlay-content').innerHTML = html;
     ov.classList.add('open');
-    ov.querySelectorAll('[data-close]').forEach(function (b) {
+    ov.querySelectorAll('[data-close]').forEach(b => {
       b.addEventListener('click', closeModal);
     });
     if (wire) { wire($('#overlay-content')); }
@@ -1098,7 +1022,7 @@
   function openSearch() {
     ui.searching = true;
     $('#search-overlay').classList.add('open');
-    var input = $('#search-input');
+    const input = $('#search-input');
     input.value = ui.searchTerm;
     input.focus();
     input.select();
@@ -1113,7 +1037,7 @@
   }
 
   function firstResult() {
-    var a = document.querySelector('#grid .link');
+    const a = document.querySelector('#grid .link');
     return a ? a.href : null;
   }
 
@@ -1124,17 +1048,17 @@
   }
 
   function selectionList() {
-    return Object.keys(ui.selection).map(function (k) { return ui.selection[k]; });
+    return Object.keys(ui.selection).map(k => ui.selection[k]);
   }
 
   function renderSelectBar() {
-    var items = selectionList();
-    $('#select-count').textContent = items.length + ' selected';
-    var sel = $('#sel-move');
-    var current = sel.value;
+    const items = selectionList();
+    $('#select-count').textContent = `${items.length} selected`;
+    const sel = $('#sel-move');
+    const current = sel.value;
     sel.innerHTML = '<option value="">Move to board...</option>';
-    Store.allBoards().forEach(function (b) {
-      var o = document.createElement('option');
+    Store.allBoards().forEach(b => {
+      const o = document.createElement('option');
       o.value = b.id;
       o.textContent = b.title;
       sel.appendChild(o);
@@ -1143,47 +1067,32 @@
   }
 
   function showTrash() {
-    var st = Store.state;
-    var body = st.trash.length
-      ? st.trash.map(function (t) {
-          return '<div class="list-item" data-id="' + t.id + '">' +
-            '<span class="tag">' + t.kind + '</span>' +
-            '<div class="li-body"><div class="li-title">' + esc(t.label || '(untitled)') + '</div>' +
-            '<div class="li-sub">' + new Date(t.at).toLocaleString() + '</div></div>' +
-            '<button class="icon-btn" data-restore="' + t.id + '" title="Restore">' + I.svg('restore', 16) + '</button>' +
-            '<button class="icon-btn" data-purge="' + t.id + '" title="Delete forever">' + I.svg('trash', 16) + '</button>' +
-            '</div>';
-        }).join('')
+    const st = Store.state;
+    const body = st.trash.length
+      ? st.trash.map(t => `<div class="list-item" data-id="${t.id}"><span class="tag">${t.kind}</span><div class="li-body"><div class="li-title">${esc(t.label || '(untitled)')}</div><div class="li-sub">${new Date(t.at).toLocaleString()}</div></div><button class="icon-btn" data-restore="${t.id}" title="Restore">${I.svg('restore', 16)}</button><button class="icon-btn" data-purge="${t.id}" title="Delete forever">${I.svg('trash', 16)}</button></div>`).join('')
       : '<div class="empty-state">Trash is empty.</div>';
 
     openModal(
-      '<div class="modal">' +
-      '<h2>Trash</h2>' +
-      '<div class="row-sub" style="margin-bottom:16px">Deleted bookmarks, boards and pages are kept here until you clear them.</div>' +
-      '<div style="max-height:44vh;overflow:auto">' + body + '</div>' +
-      '<div class="modal-actions">' +
-      (st.trash.length ? '<button class="btn btn-danger" id="tr-empty" style="margin-right:auto">Empty Trash</button>' : '') +
-      '<button class="btn btn-primary" data-close style="flex:0 0 auto">Done</button>' +
-      '</div></div>',
-      function (root) {
-        root.querySelectorAll('[data-restore]').forEach(function (b) {
-          b.addEventListener('click', function () {
+      `<div class="modal"><h2>Trash</h2><div class="row-sub" style="margin-bottom:16px">Deleted bookmarks, boards and pages are kept here until you clear them.</div><div style="max-height:44vh;overflow:auto">${body}</div><div class="modal-actions">${st.trash.length ? '<button class="btn btn-danger" id="tr-empty" style="margin-right:auto">Empty Trash</button>' : ''}<button class="btn btn-primary" data-close style="flex:0 0 auto">Done</button></div></div>`,
+      root => {
+        root.querySelectorAll('[data-restore]').forEach(b => {
+          b.addEventListener('click', () => {
             if (Store.restoreTrash(b.dataset.restore)) { toast('Restored'); }
             else { toast('Original board is gone', true); }
             closeModal();
             showTrash();
           });
         });
-        root.querySelectorAll('[data-purge]').forEach(function (b) {
-          b.addEventListener('click', function () {
+        root.querySelectorAll('[data-purge]').forEach(b => {
+          b.addEventListener('click', () => {
             Store.removeTrash(b.dataset.purge);
             closeModal();
             showTrash();
           });
         });
-        var em = $('#tr-empty', root);
+        const em = $('#tr-empty', root);
         if (em) {
-          em.addEventListener('click', function () {
+          em.addEventListener('click', () => {
             Store.emptyTrash();
             closeModal();
             toast('Trash emptied');
@@ -1216,34 +1125,34 @@
       '<input type="file" id="dx-file" accept="application/json,.json" hidden>' +
       '<div class="modal-actions"><button class="btn" data-close>Close</button></div>' +
       '</div>',
-      function (root) {
-        $('#dx-export', root).addEventListener('click', function () {
-          var blob = new Blob([Store.exportData()], { type: 'application/json' });
-          var a = document.createElement('a');
+      root => {
+        $('#dx-export', root).addEventListener('click', () => {
+          const blob = new Blob([Store.exportData()], { type: 'application/json' });
+          const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
-          a.download = 'bookmarkle-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+          a.download = `bookmarkle-backup-${new Date().toISOString().slice(0, 10)}.json`;
           a.click();
-          setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+          setTimeout(() => { URL.revokeObjectURL(a.href); }, 4000);
           toast('Backup downloaded');
         });
-        var file = $('#dx-file', root);
-        $('#dx-import', root).addEventListener('click', function () { file.click(); });
-        file.addEventListener('change', function () {
-          var f = file.files[0];
+        const file = $('#dx-file', root);
+        $('#dx-import', root).addEventListener('click', () => { file.click(); });
+        file.addEventListener('change', () => {
+          const f = file.files[0];
           if (!f) { return; }
-          var fr = new FileReader();
-          fr.onload = function () {
+          const fr = new FileReader();
+          fr.onload = () => {
             try {
               Store.importData(fr.result);
               closeModal();
               toast('Data imported');
-            } catch (e) {
+            } catch {
               toast('That file could not be read', true);
             }
           };
           fr.readAsText(f);
         });
-        $('#dx-tabs', root).addEventListener('click', function () {
+        $('#dx-tabs', root).addEventListener('click', () => {
           saveAllTabs();
           closeModal();
         });
@@ -1251,10 +1160,10 @@
     );
   }
 
-  var CHROME_BOARD_TITLE = 'Chrome Bookmarks';
+  const CHROME_BOARD_TITLE = 'Chrome Bookmarks';
 
   function flattenBookmarks(nodes, out, seen) {
-    nodes.forEach(function (n) {
+    nodes.forEach(n => {
       if (n.children) { flattenBookmarks(n.children, out, seen); return; }
       if (!n.url || !/^https?:/i.test(n.url) || seen[n.url]) { return; }
       seen[n.url] = true;
@@ -1269,49 +1178,47 @@
       return;
     }
     if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
-    chrome.bookmarks.getTree(function (tree) {
-      var links = flattenBookmarks(tree || [], [], {});
+    chrome.bookmarks.getTree(tree => {
+      const links = flattenBookmarks(tree || [], [], {});
       if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
       if (!links.length) { toast('No bookmarks found in this profile', true); return; }
 
-      var existing = null;
-      Store.allBoards().forEach(function (b) {
+      let existing = null;
+      Store.allBoards().forEach(b => {
         if (b.title === CHROME_BOARD_TITLE) { existing = b; }
       });
 
       if (existing) {
         Store.replaceBoardLinks(existing.id, links);
-        toast('Refreshed ' + links.length + ' Chrome bookmarks');
+        toast(`Refreshed ${links.length} Chrome bookmarks`);
       } else {
-        var board = Store.addBoard(0, CHROME_BOARD_TITLE);
+        const board = Store.addBoard(0, CHROME_BOARD_TITLE);
         Store.replaceBoardLinks(board.id, links);
-        toast('Imported ' + links.length + ' Chrome bookmarks');
+        toast(`Imported ${links.length} Chrome bookmarks`);
       }
     });
   }
 
   function saveAllTabs() {
-    chrome.tabs.query({ currentWindow: true }, function (tabs) {
-      var keep = tabs.filter(function (t) {
-        return t.url && /^https?:/.test(t.url);
-      });
+    chrome.tabs.query({ currentWindow: true }, tabs => {
+      const keep = tabs.filter(t => t.url && /^https?:/.test(t.url));
       if (!keep.length) { toast('No saveable tabs in this window', true); return; }
-      var board = Store.addBoard(0, 'Tabs ' + new Date().toLocaleDateString());
-      keep.forEach(function (t) {
+      const board = Store.addBoard(0, `Tabs ${new Date().toLocaleDateString()}`);
+      keep.forEach(t => {
         Store.addLink(board.id, { url: t.url, title: t.title || t.url });
       });
-      toast('Saved ' + keep.length + ' tabs');
+      toast(`Saved ${keep.length} tabs`);
       if (Store.state.settings.closeTabsAfterSaveAll) {
-        chrome.tabs.remove(keep.filter(function (t) { return !t.active; }).map(function (t) { return t.id; }));
+        chrome.tabs.remove(keep.filter(t => !t.active).map(t => t.id));
       }
     });
   }
 
-  var catalogData = null;
+  let catalogData = null;
 
   function ensureCatalog() {
     if (catalogData) { return Promise.resolve(catalogData); }
-    return Catalog.loadAll().then(function (d) {
+    return Catalog.loadAll().then(d => {
       catalogData = d;
       return d;
     });
@@ -1319,17 +1226,17 @@
 
   function panelPicks(isLight) {
     if (!catalogData) { return []; }
-    return catalogData.remote.filter(function (w) { return w.isLight === isLight; }).slice(0, 24);
+    return catalogData.remote.filter(w => w.isLight === isLight).slice(0, 24);
   }
 
   function wallpaperSections() {
-    var st = Store.state;
-    var isLight = st.settings.theme === 'light';
-    var user = st.wallpapers.user.filter(function (w) { return w.isLight === isLight; });
-    var builtin = (catalogData ? catalogData.builtin : []).filter(function (w) { return w.isLight === isLight; });
-    var gallery = panelPicks(isLight);
+    const st = Store.state;
+    const isLight = st.settings.theme === 'light';
+    const user = st.wallpapers.user.filter(w => w.isLight === isLight);
+    const builtin = (catalogData ? catalogData.builtin : []).filter(w => w.isLight === isLight);
+    const gallery = panelPicks(isLight);
 
-    var out = [];
+    const out = [];
     if (user.length) { out.push({ key: 'yours', label: 'Your Wallpapers', items: user, editable: true }); }
     if (builtin.length) { out.push({ key: 'builtin', label: 'Starter Wallpapers', items: builtin, editable: false }); }
     if (gallery.length) { out.push({ key: 'gallery', label: 'From the Gallery', items: gallery, editable: false }); }
@@ -1337,79 +1244,77 @@
   }
 
   function renderWallpaperPanel() {
-    var st = Store.state;
-    var t = Store.currentTheme();
+    const st = Store.state;
+    const t = Store.currentTheme();
     $('#mode-dark').classList.toggle('active', st.settings.theme === 'dark');
     $('#mode-light').classList.toggle('active', st.settings.theme === 'light');
 
-    var host = $('#wp-scroll');
-    var sections = wallpaperSections();
+    const host = $('#wp-scroll');
+    const sections = wallpaperSections();
 
     if (!catalogData) {
       host.innerHTML = '<div class="empty-state">Loading wallpapers...</div>';
-      ensureCatalog().then(function () { if (ui.wpOpen) { renderWallpaperPanel(); } });
+      ensureCatalog().then(() => { if (ui.wpOpen) { renderWallpaperPanel(); } });
       return;
     }
 
     host.innerHTML = '';
 
-    sections.forEach(function (sec) {
-      var wrap = document.createElement('div');
-      wrap.className = 'wp-section' + (ui.wpCollapsed[sec.key] ? ' collapsed' : '');
+    sections.forEach(sec => {
+      const wrap = document.createElement('div');
+      wrap.className = `wp-section${ui.wpCollapsed[sec.key] ? ' collapsed' : ''}`;
 
-      var head = document.createElement('button');
+      const head = document.createElement('button');
       head.className = 'wp-section-head';
-      head.innerHTML = '<span>' + esc(sec.label) + '</span>' +
-        '<span class="wp-count">' + sec.items.length + '</span>' +
-        '<span class="wp-chev">' + I.svg('chevron', 16) + '</span>';
-      head.addEventListener('click', function () {
+      head.innerHTML = `<span>${esc(sec.label)}</span><span class="wp-count">${sec.items.length}</span><span class="wp-chev">${I.svg('chevron', 16)}</span>`;
+      head.addEventListener('click', () => {
         ui.wpCollapsed[sec.key] = !ui.wpCollapsed[sec.key];
         renderWallpaperPanel();
       });
       wrap.appendChild(head);
 
-      var grid = document.createElement('div');
+      const grid = document.createElement('div');
       grid.className = 'wp-grid';
 
-      sec.items.forEach(function (w) {
-        var card = document.createElement('div');
-        card.className = 'wp-card' + (t.wallpaperId === w.id ? ' active' : '');
+      sec.items.forEach(w => {
+        const card = document.createElement('div');
+        card.className = `wp-card${t.wallpaperId === w.id ? ' active' : ''}`;
 
-        var thumb = document.createElement('div');
+        const thumb = document.createElement('div');
         thumb.className = 'wp-thumb';
-        thumb.style.backgroundImage = 'url("' + resolveSrc(w.thumb || w.src).replace(/"/g, '%22') + '")';
+        thumb.style.backgroundImage = `url("${resolveSrc(w.thumb || w.src).replace(/"/g, '%22')}")`;
         thumb.title = w.name;
-        thumb.addEventListener('click', function () { applyWallpaper(w); });
+        thumb.addEventListener('click', () => { applyWallpaper(w); });
         card.appendChild(thumb);
 
-        var name = document.createElement('div');
+        const name = document.createElement('div');
         name.className = 'wp-name';
         name.textContent = w.name;
         card.appendChild(name);
 
-        var tools = document.createElement('div');
+        const tools = document.createElement('div');
         tools.className = 'wp-card-tools';
 
-        var edit = document.createElement('button');
+        const edit = document.createElement('button');
         edit.className = 'icon-btn';
         edit.title = 'Adjust style';
         edit.innerHTML = I.svg('pencil', 14);
-        edit.addEventListener('click', function () { applyWallpaper(w); adjustStyleModal(w); });
+        edit.addEventListener('click', () => { applyWallpaper(w); adjustStyleModal(w); });
         tools.appendChild(edit);
 
-        var dl = document.createElement('button');
+        const dl = document.createElement('button');
         dl.className = 'icon-btn';
         dl.title = 'Download';
         dl.innerHTML = I.svg('download', 14);
-        dl.addEventListener('click', function () { downloadWallpaper(w); });
+        dl.addEventListener('click', () => { downloadWallpaper(w); });
         tools.appendChild(dl);
 
         if (sec.editable) {
-          var del = document.createElement('button');
+          const del = document.createElement('button');
           del.className = 'icon-btn';
           del.title = 'Remove';
           del.innerHTML = I.svg('trash', 14);
-          del.addEventListener('click', function () {
+          del.addEventListener('click', () => {
             Store.deleteUserWallpaper(w.id);
             if (t.wallpaperId === w.id) { resetThemeWallpaper(); }
             toast('Wallpaper removed');
@@ -1427,7 +1332,7 @@
     });
 
     if (catalogData.error) {
-      var warn = document.createElement('div');
+      const warn = document.createElement('div');
       warn.className = 'row-sub';
       warn.style.padding = '10px 0 4px';
       warn.textContent = 'Gallery unavailable offline - starter wallpapers still work.';
@@ -1436,42 +1341,41 @@
   }
 
   function resetThemeWallpaper() {
-    var isLight = Store.state.settings.theme === 'light';
-    var pool = (catalogData ? catalogData.builtin : []).filter(function (w) { return w.isLight === isLight; });
+    const isLight = Store.state.settings.theme === 'light';
+    const pool = (catalogData ? catalogData.builtin : []).filter(w => w.isLight === isLight);
     if (pool.length) { Store.applyWallpaperToTheme(pool[0]); }
   }
 
   function applyWallpaper(w) {
     Store.applyWallpaperToTheme(w);
-    toast('Wallpaper applied to the ' +
-      (Store.state.settings.theme === 'light' ? 'Light' : 'Dark') + ' theme');
+    toast(`Wallpaper applied to the ${Store.state.settings.theme === 'light' ? 'Light' : 'Dark'} theme`);
   }
 
   function downloadWallpaper(w) {
-    var a = document.createElement('a');
+    const a = document.createElement('a');
     a.href = resolveSrc(w.src);
-    a.download = String(w.name || 'wallpaper').replace(/\s+/g, '-').toLowerCase() + '.jpg';
+    a.download = `${String(w.name || 'wallpaper').replace(/\s+/g, '-').toLowerCase()}.jpg`;
     a.target = '_blank';
     a.rel = 'noopener';
     a.click();
-    toast('Downloading ' + w.name);
+    toast(`Downloading ${w.name}`);
   }
 
-  var MAX_UPLOAD_MB = 100;
+  const MAX_UPLOAD_MB = 100;
 
   function handleUpload(file) {
     if (!file) { return; }
     if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
-      toast('Please pick an image under ' + MAX_UPLOAD_MB + ' MB', true);
+      toast(`Please pick an image under ${MAX_UPLOAD_MB} MB`, true);
       return;
     }
     toast('Reading image...');
-    var fr = new FileReader();
-    fr.onload = function () {
-      var img = new Image();
-      img.onload = function () {
-        var pal = ColorUtil.fromImage(img);
-        var wp = Store.addUserWallpaper({
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const pal = ColorUtil.fromImage(img);
+        const wp = Store.addUserWallpaper({
           name: file.name.replace(/\.[^.]+$/, '').slice(0, 40) || 'My Wallpaper',
           src: fr.result,
           source: 'upload',
@@ -1489,61 +1393,41 @@
         applyWallpaper(wp);
         renderWallpaperPanel();
       };
-      img.onerror = function () { toast('That image could not be read', true); };
+      img.onerror = () => { toast('That image could not be read', true); };
       img.src = fr.result;
     };
-    fr.onerror = function () { toast('That file could not be read', true); };
+    fr.onerror = () => { toast('That file could not be read', true); };
     fr.readAsDataURL(file);
   }
 
   function adjustStyleModal(w) {
-    var t = Store.currentTheme();
-    var isLight = Store.state.settings.theme === 'light';
-    var snapshot = { primary: t.primary, board: t.board, opacity: t.opacity, blur: t.blur };
+    const t = Store.currentTheme();
+    const isLight = Store.state.settings.theme === 'light';
+    const snapshot = { primary: t.primary, board: t.board, opacity: t.opacity, blur: t.blur };
 
     function tile(id, label, value) {
-      return '<div class="as-tile">' +
-        '<div class="as-tile-head"><span class="as-label">' + label + '</span>' +
-        '<span class="as-value" id="' + id + '-hex">' + esc(value.toUpperCase()) + '</span></div>' +
-        '<label class="as-swatch" style="background:' + esc(value) + '">' +
-        '<input type="color" id="' + id + '" value="' + esc(value) + '">' +
-        '</label></div>';
+      return `<div class="as-tile"><div class="as-tile-head"><span class="as-label">${label}</span><span class="as-value" id="${id}-hex">${esc(value.toUpperCase())}</span></div><label class="as-swatch" style="background:${esc(value)}"><input type="color" id="${id}" value="${esc(value)}"></label></div>`;
     }
 
     function slider(id, label, value, min, max, suffix) {
-      return '<div class="as-tile as-tile-wide">' +
-        '<div class="as-tile-head"><span class="as-label">' + label + '</span>' +
-        '<span class="as-value" id="' + id + '-out">' + value + suffix + '</span></div>' +
-        '<input type="range" class="as-range" id="' + id + '" min="' + min + '" max="' + max +
-        '" value="' + value + '"></div>';
+      return `<div class="as-tile as-tile-wide"><div class="as-tile-head"><span class="as-label">${label}</span><span class="as-value" id="${id}-out">${value}${suffix}</span></div><input type="range" class="as-range" id="${id}" min="${min}" max="${max}" value="${value}"></div>`;
     }
 
     openModal(
-      '<div class="modal as-modal">' +
-      '<h2>Adjust Wallpaper Style</h2>' +
-      '<p class="as-sub">' + (isLight ? 'Light' : 'Dark') + ' theme on this device.</p>' +
-      '<div class="as-grid">' +
-      tile('as-primary', 'Primary Color', t.primary) +
-      tile('as-board', 'Board Color', t.board) +
-      '</div>' +
-      slider('as-opacity', 'Board Opacity', Math.round(t.opacity * 100), 0, 100, '%') +
-      slider('as-blur', 'Board Blur', t.blur, 0, 40, 'px') +
-      '<div class="as-actions">' +
-      '<button class="as-btn" id="as-cancel">Cancel</button>' +
-      '<button class="as-btn" id="as-reset">Reset</button>' +
-      '<button class="as-btn as-btn-save" id="as-save">Save</button>' +
-      '</div></div>',
-      function (root) {
-        var pc = $('#as-primary', root), bc = $('#as-board', root);
-        var op = $('#as-opacity', root), bl = $('#as-blur', root);
+      `<div class="modal as-modal"><h2>Adjust Wallpaper Style</h2><p class="as-sub">${isLight ? 'Light' : 'Dark'} theme on this device.</p><div class="as-grid">${tile('as-primary', 'Primary Color', t.primary)}${tile('as-board', 'Board Color', t.board)}</div>${slider('as-opacity', 'Board Opacity', Math.round(t.opacity * 100), 0, 100, '%')}${slider('as-blur', 'Board Blur', t.blur, 0, 40, 'px')}<div class="as-actions"><button class="as-btn" id="as-cancel">Cancel</button><button class="as-btn" id="as-reset">Reset</button><button class="as-btn as-btn-save" id="as-save">Save</button></div></div>`,
+      root => {
+        const pc = $('#as-primary', root);
+        const bc = $('#as-board', root);
+        const op = $('#as-opacity', root);
+        const bl = $('#as-blur', root);
 
         function paint() {
           $('#as-primary-hex', root).textContent = pc.value.toUpperCase();
           $('#as-board-hex', root).textContent = bc.value.toUpperCase();
           pc.parentNode.style.background = pc.value;
           bc.parentNode.style.background = bc.value;
-          $('#as-opacity-out', root).textContent = op.value + '%';
-          $('#as-blur-out', root).textContent = bl.value + 'px';
+          $('#as-opacity-out', root).textContent = `${op.value}%`;
+          $('#as-blur-out', root).textContent = `${bl.value}px`;
         }
 
         function live() {
@@ -1556,12 +1440,12 @@
           paint();
         }
 
-        [pc, bc, op, bl].forEach(function (el) {
+        [pc, bc, op, bl].forEach(el => {
           el.addEventListener('input', live);
         });
 
-        $('#as-reset', root).addEventListener('click', function () {
-          var base = (w && w.style) ? w.style : Store.defaultThemeStyle(isLight);
+        $('#as-reset', root).addEventListener('click', () => {
+          const base = w?.style ?? Store.defaultThemeStyle(isLight);
           pc.value = base.primary || snapshot.primary;
           bc.value = base.board || snapshot.board;
           op.value = Math.round((typeof base.opacity === 'number' ? base.opacity : snapshot.opacity) * 100);
@@ -1569,12 +1453,12 @@
           live();
         });
 
-        $('#as-cancel', root).addEventListener('click', function () {
+        $('#as-cancel', root).addEventListener('click', () => {
           Store.updateThemeStyle(snapshot);
           closeModal();
         });
 
-        $('#as-save', root).addEventListener('click', function () {
+        $('#as-save', root).addEventListener('click', () => {
           if (w && !w.builtin) {
             Store.updateUserWallpaper(w.id, {
               style: {
@@ -1598,120 +1482,62 @@
     chrome.tabs.create({ url: chrome.runtime.getURL('gallery.html') });
   }
 
-  var settingsTab = 'general';
+  let settingsTab = 'general';
 
   function showSettings() {
-    openModal('<div class="modal settings-modal" id="set-modal"></div>', function () { renderSettings(); });
+    openModal('<div class="modal settings-modal" id="set-modal"></div>', () => { renderSettings(); });
   }
 
   function renderSettings() {
-    var host = $('#set-modal');
+    const host = $('#set-modal');
     if (!host) { return; }
-    var tabs = [
+    const tabs = [
       ['general', 'General', 'gear'],
       ['account', 'Account', 'user'],
       ['language', 'Language', 'globe'],
       ['support', 'Support', 'bug']
     ];
     host.innerHTML =
-      '<aside class="settings-nav"><h2>Settings</h2>' +
-      tabs.map(function (t) {
-        return '<button class="nav-item' + (settingsTab === t[0] ? ' active' : '') + '" data-tab="' + t[0] + '">' +
-          I.svg(t[2], 19) + '<span>' + t[1] + '</span></button>';
-      }).join('') +
-      '</aside>' +
-      '<div class="settings-body" id="set-body">' +
-      '<button class="settings-close" data-close>' + I.svg('x', 18) + '</button>' +
-      settingsBody() + '</div>';
+      `<aside class="settings-nav"><h2>Settings</h2>${tabs.map(t => `<button class="nav-item${settingsTab === t[0] ? ' active' : ''}" data-tab="${t[0]}">${I.svg(t[2], 19)}<span>${t[1]}</span></button>`).join('')}</aside><div class="settings-body" id="set-body"><button class="settings-close" data-close>${I.svg('x', 18)}</button>${settingsBody()}</div>`;
 
-    host.querySelectorAll('[data-tab]').forEach(function (b) {
-      b.addEventListener('click', function () { settingsTab = b.dataset.tab; renderSettings(); });
+    host.querySelectorAll('[data-tab]').forEach(b => {
+      b.addEventListener('click', () => { settingsTab = b.dataset.tab; renderSettings(); });
     });
-    host.querySelectorAll('[data-close]').forEach(function (b) {
+    host.querySelectorAll('[data-close]').forEach(b => {
       b.addEventListener('click', closeModal);
     });
     wireSettings(host);
   }
 
   function toggleRow(key, title, sub) {
-    var on = Store.state.settings[key];
-    return '<div class="row"><div class="row-text"><div class="row-title">' + title + '</div>' +
-      '<div class="row-sub">' + sub + '</div></div>' +
-      '<button class="toggle' + (on ? ' on' : '') + '" data-toggle="' + key + '"></button></div>';
+    const on = Store.state.settings[key];
+    return `<div class="row"><div class="row-text"><div class="row-title">${title}</div><div class="row-sub">${sub}</div></div><button class="toggle${on ? ' on' : ''}" data-toggle="${key}"></button></div>`;
   }
 
   function settingsBody() {
-    var st = Store.state;
+    const st = Store.state;
 
     if (settingsTab === 'general') {
-      var pageOpts = ['<option value="current"' + (st.settings.quickSaveDestination === 'current' ? ' selected' : '') + '>Current Page</option>']
-        .concat(st.pages.map(function (p) {
-          return '<option value="' + p.id + '"' + (st.settings.quickSaveDestination === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
-        })).join('');
+      const pageOpts = [`<option value="current"${st.settings.quickSaveDestination === 'current' ? ' selected' : ''}>Current Page</option>`]
+        .concat(st.pages.map(p => `<option value="${p.id}"${st.settings.quickSaveDestination === p.id ? ' selected' : ''}>${esc(p.name)}</option>`)).join('');
 
-      return '<h1>General Settings</h1><div class="settings-rule"></div>' +
-        '<div class="group"><div class="group-title">Appearance</div>' +
-        toggleRow('compactMode', 'Compact mode', 'Reduce spacing to show more bookmarks.') +
-        toggleRow('showClock', 'Show clock', 'Display the time in the middle of the top bar.') +
-        toggleRow('groupTools', 'Group right-side tools', 'Keep Search and Settings visible, and group the other right-side buttons into one menu on this device.') +
-        toggleRow('hideExtraBookmarks', 'Hide extra bookmarks in long boards', 'Automatically hide extra bookmarks in long boards.') +
-        toggleRow('shortenTitles', 'Shorten long titles', 'Show titles on one line with "...".') +
-        '</div>' +
-        '<div class="group"><div class="group-title">Behavior</div>' +
-        toggleRow('openInNewTab', 'Open links in new tab', 'Open bookmarks in a new browser tab.') +
-        toggleRow('showDescriptions', 'Show bookmark descriptions', 'Display saved descriptions below bookmark titles.') +
-        toggleRow('closeTabsAfterSaveAll', 'Close tabs after Save All Tabs', 'Automatically close the saved tabs in the current window.') +
-        '<div class="row"><div class="row-text"><div class="row-title">Quick Save destination</div>' +
-        '<div class="row-sub">Where to save new links.</div></div>' +
-        '<select class="select" id="set-qs">' + pageOpts + '</select></div>' +
-        '<div class="row"><div class="row-text"><div class="row-title">Change quick save shortcut</div>' +
-        '<div class="row-sub">Open browser shortcut settings to change this key.</div></div>' +
-        '<span class="kbd">Ctrl+Shift+Y</span>' +
-        '<button class="btn btn-sm" id="set-shortcut">Change</button></div>' +
-        '</div>' +
-        '<div class="group"><div class="group-title">Chrome bookmarks</div>' +
-        '<div class="row"><div class="row-text"><div class="row-title">Import Chrome bookmarks</div>' +
-        '<div class="row-sub">Collect every bookmark saved in this Chrome profile into a board called "' +
-        CHROME_BOARD_TITLE + '" on the current page. Folders are flattened into the one board. ' +
-        'Running it again refreshes that board instead of adding a second one, and your Chrome ' +
-        'bookmarks are only read, never changed.</div></div>' +
-        '<button class="btn" id="set-chrome-bm">Import</button></div>' +
-        '</div>';
+      return `<h1>General Settings</h1><div class="settings-rule"></div><div class="group"><div class="group-title">Appearance</div>${toggleRow('compactMode', 'Compact mode', 'Reduce spacing to show more bookmarks.')}${toggleRow('showClock', 'Show clock', 'Display the time in the middle of the top bar.')}${toggleRow('groupTools', 'Group right-side tools', 'Keep Search and Settings visible, and group the other right-side buttons into one menu on this device.')}${toggleRow('hideExtraBookmarks', 'Hide extra bookmarks in long boards', 'Automatically hide extra bookmarks in long boards.')}${toggleRow('shortenTitles', 'Shorten long titles', 'Show titles on one line with "...".')}</div><div class="group"><div class="group-title">Behavior</div>${toggleRow('openInNewTab', 'Open links in new tab', 'Open bookmarks in a new browser tab.')}${toggleRow('showDescriptions', 'Show bookmark descriptions', 'Display saved descriptions below bookmark titles.')}${toggleRow('closeTabsAfterSaveAll', 'Close tabs after Save All Tabs', 'Automatically close the saved tabs in the current window.')}<div class="row"><div class="row-text"><div class="row-title">Quick Save destination</div><div class="row-sub">Where to save new links.</div></div><select class="select" id="set-qs">${pageOpts}</select></div><div class="row"><div class="row-text"><div class="row-title">Change quick save shortcut</div><div class="row-sub">Open browser shortcut settings to change this key.</div></div><span class="kbd">Ctrl+Shift+Y</span><button class="btn btn-sm" id="set-shortcut">Change</button></div></div><div class="group"><div class="group-title">Chrome bookmarks</div><div class="row"><div class="row-text"><div class="row-title">Import Chrome bookmarks</div><div class="row-sub">Collect every bookmark saved in this Chrome profile into a board called "${CHROME_BOARD_TITLE}" on the current page. Folders are flattened into the one board. Running it again refreshes that board instead of adding a second one, and your Chrome bookmarks are only read, never changed.</div></div><button class="btn" id="set-chrome-bm">Import</button></div></div>`;
     }
 
     if (settingsTab === 'account') {
-      var boards = 0, links = 0;
-      st.pages.forEach(function (p) {
-        p.columns.forEach(function (c) {
+      let boards = 0;
+      let links = 0;
+      st.pages.forEach(p => {
+        p.columns.forEach(c => {
           boards += c.length;
-          c.forEach(function (b) { links += b.links.length; });
+          c.forEach(b => { links += b.links.length; });
         });
       });
-      return '<h1>Account</h1><div class="settings-rule"></div>' +
-        '<div class="group"><div class="group-title">This device</div>' +
-        '<div class="row"><div class="row-text"><div class="row-title">Local storage only</div>' +
-        '<div class="row-sub">Bookmarkle has no account and no server. Everything you see is stored in this browser profile, ' +
-        'and nothing is ever uploaded. Use Export to move your data to another machine.</div></div></div>' +
-        '<div class="row"><div class="row-text"><div class="row-title">What you have saved</div>' +
-        '<div class="row-sub">' + st.pages.length + ' page' + (st.pages.length > 1 ? 's' : '') +
-        ' &middot; ' + boards + ' boards &middot; ' + links + ' bookmarks &middot; ' +
-        st.wallpapers.user.length + ' uploaded wallpapers</div></div></div>' +
-        '</div>' +
-        '<div class="group"><div class="group-title">Data</div>' +
-        '<div class="row"><div class="row-text"><div class="row-title">Download your data</div>' +
-        '<div class="row-sub">Export every page, board and bookmark as a JSON file.</div></div>' +
-        '<button class="btn" id="set-export">Download Data</button></div>' +
-        '<div class="row"><div class="row-text"><div class="row-title">Import a backup</div>' +
-        '<div class="row-sub">Replace everything with a previously exported file.</div></div>' +
-        '<button class="btn" id="set-import">Import</button></div>' +
-        '<div class="row"><div class="row-text"><div class="row-title">Reset everything</div>' +
-        '<div class="row-sub">Delete all local data and return to the starter layout. This cannot be undone.</div></div>' +
-        '<button class="btn btn-danger" id="set-reset">Reset</button></div>' +
-        '</div><input type="file" id="set-file" accept="application/json,.json" hidden>';
+      return `<h1>Account</h1><div class="settings-rule"></div><div class="group"><div class="group-title">This device</div><div class="row"><div class="row-text"><div class="row-title">Local storage only</div><div class="row-sub">Bookmarkle has no account and no server. Everything you see is stored in this browser profile, and nothing is ever uploaded. Use Export to move your data to another machine.</div></div></div><div class="row"><div class="row-text"><div class="row-title">What you have saved</div><div class="row-sub">${st.pages.length} page${st.pages.length > 1 ? 's' : ''} &middot; ${boards} boards &middot; ${links} bookmarks &middot; ${st.wallpapers.user.length} uploaded wallpapers</div></div></div></div><div class="group"><div class="group-title">Data</div><div class="row"><div class="row-text"><div class="row-title">Download your data</div><div class="row-sub">Export every page, board and bookmark as a JSON file.</div></div><button class="btn" id="set-export">Download Data</button></div><div class="row"><div class="row-text"><div class="row-title">Import a backup</div><div class="row-sub">Replace everything with a previously exported file.</div></div><button class="btn" id="set-import">Import</button></div><div class="row"><div class="row-text"><div class="row-title">Reset everything</div><div class="row-sub">Delete all local data and return to the starter layout. This cannot be undone.</div></div><button class="btn btn-danger" id="set-reset">Reset</button></div></div><input type="file" id="set-file" accept="application/json,.json" hidden>`;
     }
 
     if (settingsTab === 'language') {
-      var langs = [
+      const langs = [
         ['auto', 'Automatic', 'Browser language', true],
         ['en', 'English', '', true],
         ['de', 'Deutsch', 'German', false],
@@ -1731,122 +1557,82 @@
         ['vi', 'Tiếng Việt', 'Vietnamese', false],
         ['ar', 'العربية', 'Arabic', false]
       ];
-      return '<h1>Language</h1><div class="settings-rule"></div>' +
-        '<input class="field" id="lang-q" placeholder="Search languages" style="margin-bottom:18px">' +
-        '<div class="row-sub" style="margin-bottom:16px">This build ships with English. The other locales are listed so ' +
-        'translation files can be dropped in later - picking one now keeps English.</div>' +
-        '<div id="lang-list">' + langs.map(function (l) {
-          var active = st.settings.language === l[0];
-          return '<button class="lang-item' + (active ? ' active' : '') + '" data-lang="' + l[0] + '" data-search="' +
-            esc((l[1] + ' ' + l[2]).toLowerCase()) + '">' +
-            '<span class="lang-name">' + l[1] + '</span>' +
-            (l[2] ? '<span class="lang-en">' + l[2] + '</span>' : '') +
-            (l[3] ? '<span class="lang-radio"></span>' : '<span class="lang-soon">not translated yet</span>') +
-            '</button>';
-        }).join('') + '</div>';
+      return `<h1>Language</h1><div class="settings-rule"></div><input class="field" id="lang-q" placeholder="Search languages" style="margin-bottom:18px"><div class="row-sub" style="margin-bottom:16px">This build ships with English. The other locales are listed so translation files can be dropped in later - picking one now keeps English.</div><div id="lang-list">${langs.map(l => {
+    const active = st.settings.language === l[0];
+    return `<button class="lang-item${active ? ' active' : ''}" data-lang="${l[0]}" data-search="${esc((`${l[1]} ${l[2]}`).toLowerCase())}"><span class="lang-name">${l[1]}</span>${l[2] ? `<span class="lang-en">${l[2]}</span>` : ''}${l[3] ? '<span class="lang-radio"></span>' : '<span class="lang-soon">not translated yet</span>'}</button>`;
+  }).join('')}</div>`;
     }
 
-    return '<h1>Support</h1><div class="settings-rule"></div>' +
-      '<div class="group"><div class="group-title">Version</div>' +
-      '<div class="row"><div class="row-text">' +
-      '<div class="row-title">Bookmarkle ' + esc(window.UpdateCheck ? UpdateCheck.currentVersion() : '') + '</div>' +
-      '<div class="row-sub" id="ver-status">Checks GitHub once a day for a newer version.</div></div>' +
-      '<button class="btn btn-sm" id="ver-get" style="display:none">Download update</button>' +
-      '<button class="btn btn-sm" id="ver-check">Check now</button></div>' +
-      '<div class="row"><div class="row-text"><div class="row-title">Project page</div>' +
-      '<div class="row-sub">Source code, releases and how to update.</div></div>' +
-      '<button class="btn btn-sm" id="ver-repo">Open GitHub</button></div>' +
-      '</div>' +
-      '<div class="group"><div class="group-title">Report a problem</div>' +
-      '<div class="row"><div class="row-text">' +
-      '<div class="row-title">Found a bug, or something not working?</div>' +
-      '<div class="row-sub">Email <a class="support-mail" href="mailto:' + SUPPORT_EMAIL +
-      '?subject=Bookmarkle%20issue%20report">' + SUPPORT_EMAIL + '</a> with what happened ' +
-      'and it will be looked into. Bug reports, broken sites, feature requests and any other ' +
-      'problems are all welcome.</div></div>' +
-      '<button class="btn btn-sm" id="sup-copy">Copy email</button></div>' +
-      '</div>' +
-      '<div class="group"><div class="group-title">Keyboard</div>' +
-      '<div class="row"><div class="row-text"><div class="row-title">/ or Ctrl+K</div><div class="row-sub">Open search</div></div></div>' +
-      '<div class="row"><div class="row-text"><div class="row-title">Esc</div><div class="row-sub">Close search, menus and dialogs</div></div></div>' +
-      '<div class="row"><div class="row-text"><div class="row-title">Ctrl+Shift+Y</div><div class="row-sub">Quick save the page you are on</div></div></div>' +
-      '<div class="row"><div class="row-text"><div class="row-title">Double click a board title</div><div class="row-sub">Rename it inline</div></div></div>' +
-      '<div class="row"><div class="row-text"><div class="row-title">Right click a bookmark or page tab</div><div class="row-sub">Open its context menu</div></div></div>' +
-      '</div>' +
-      '<div class="group"><div class="group-title">Tips</div>' +
-      '<div class="row"><div class="row-text"><div class="row-title">Drag things around</div>' +
-      '<div class="row-sub">Boards drag between columns, bookmarks drag between boards, and dropping a board on a page tab moves it to that page.</div></div></div>' +
-      '<div class="row"><div class="row-text"><div class="row-title">Wallpapers drive the colours</div>' +
-      '<div class="row-sub">Upload any image and Bookmarkle picks the accent and board tint from it. Fine-tune with the pencil on the wallpaper card.</div></div></div>' +
-      '</div>';
+    return `<h1>Support</h1><div class="settings-rule"></div><div class="group"><div class="group-title">Version</div><div class="row"><div class="row-text"><div class="row-title">Bookmarkle ${esc(window.UpdateCheck ? UpdateCheck.currentVersion() : '')}</div><div class="row-sub" id="ver-status">Checks GitHub once a day for a newer version.</div></div><button class="btn btn-sm" id="ver-get" style="display:none">Download update</button><button class="btn btn-sm" id="ver-check">Check now</button></div><div class="row"><div class="row-text"><div class="row-title">Project page</div><div class="row-sub">Source code, releases and how to update.</div></div><button class="btn btn-sm" id="ver-repo">Open GitHub</button></div></div><div class="group"><div class="group-title">Report a problem</div><div class="row"><div class="row-text"><div class="row-title">Found a bug, or something not working?</div><div class="row-sub">Email <a class="support-mail" href="mailto:${SUPPORT_EMAIL}?subject=Bookmarkle%20issue%20report">${SUPPORT_EMAIL}</a> with what happened and it will be looked into. Bug reports, broken sites, feature requests and any other problems are all welcome.</div></div><button class="btn btn-sm" id="sup-copy">Copy email</button></div></div><div class="group"><div class="group-title">Keyboard</div><div class="row"><div class="row-text"><div class="row-title">/ or Ctrl+K</div><div class="row-sub">Open search</div></div></div><div class="row"><div class="row-text"><div class="row-title">Esc</div><div class="row-sub">Close search, menus and dialogs</div></div></div><div class="row"><div class="row-text"><div class="row-title">Ctrl+Shift+Y</div><div class="row-sub">Quick save the page you are on</div></div></div><div class="row"><div class="row-text"><div class="row-title">Double click a board title</div><div class="row-sub">Rename it inline</div></div></div><div class="row"><div class="row-text"><div class="row-title">Right click a bookmark or page tab</div><div class="row-sub">Open its context menu</div></div></div></div><div class="group"><div class="group-title">Tips</div><div class="row"><div class="row-text"><div class="row-title">Drag things around</div><div class="row-sub">Boards drag between columns, bookmarks drag between boards, and dropping a board on a page tab moves it to that page.</div></div></div><div class="row"><div class="row-text"><div class="row-title">Wallpapers drive the colours</div><div class="row-sub">Upload any image and Bookmarkle picks the accent and board tint from it. Fine-tune with the pencil on the wallpaper card.</div></div></div></div>`;
   }
 
   function wireSettings(host) {
-    host.querySelectorAll('[data-toggle]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var k = b.dataset.toggle;
+    host.querySelectorAll('[data-toggle]').forEach(b => {
+      b.addEventListener('click', () => {
+        const k = b.dataset.toggle;
         Store.setSetting(k, !Store.state.settings[k]);
         renderSettings();
       });
     });
 
-    var qs = $('#set-qs', host);
+    const qs = $('#set-qs', host);
     if (qs) {
-      qs.addEventListener('change', function () { Store.setSetting('quickSaveDestination', qs.value); });
+      qs.addEventListener('change', () => { Store.setSetting('quickSaveDestination', qs.value); });
     }
 
-    var cbm = $('#set-chrome-bm', host);
+    const cbm = $('#set-chrome-bm', host);
     if (cbm) {
-      cbm.addEventListener('click', function () { importChromeBookmarks(cbm); });
+      cbm.addEventListener('click', () => { importChromeBookmarks(cbm); });
     }
 
-    var sc = $('#set-shortcut', host);
+    const sc = $('#set-shortcut', host);
     if (sc) {
-      sc.addEventListener('click', function () {
+      sc.addEventListener('click', () => {
         chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
       });
     }
 
-    var ex = $('#set-export', host);
+    const ex = $('#set-export', host);
     if (ex) {
-      ex.addEventListener('click', function () {
-        var blob = new Blob([Store.exportData()], { type: 'application/json' });
-        var a = document.createElement('a');
+      ex.addEventListener('click', () => {
+        const blob = new Blob([Store.exportData()], { type: 'application/json' });
+        const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'bookmarkle-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+        a.download = `bookmarkle-backup-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
-        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+        setTimeout(() => { URL.revokeObjectURL(a.href); }, 4000);
         toast('Backup downloaded');
       });
     }
 
-    var imp = $('#set-import', host), f = $('#set-file', host);
+    const imp = $('#set-import', host);
+    const f = $('#set-file', host);
     if (imp && f) {
-      imp.addEventListener('click', function () { f.click(); });
-      f.addEventListener('change', function () {
-        var file = f.files[0];
+      imp.addEventListener('click', () => { f.click(); });
+      f.addEventListener('change', () => {
+        const file = f.files[0];
         if (!file) { return; }
-        var fr = new FileReader();
-        fr.onload = function () {
+        const fr = new FileReader();
+        fr.onload = () => {
           try { Store.importData(fr.result); renderSettings(); toast('Data imported'); }
-          catch (e) { toast('That file could not be read', true); }
+          catch { toast('That file could not be read', true); }
         };
         fr.readAsText(file);
       });
     }
 
-    var rs = $('#set-reset', host);
+    const rs = $('#set-reset', host);
     if (rs) {
-      rs.addEventListener('click', function () {
+      rs.addEventListener('click', () => {
         if (rs.dataset.armed) { Store.resetAll(); renderSettings(); toast('Everything reset'); return; }
         rs.dataset.armed = '1';
         rs.textContent = 'Click again to confirm';
-        setTimeout(function () { delete rs.dataset.armed; rs.textContent = 'Reset'; }, 4000);
+        setTimeout(() => { delete rs.dataset.armed; rs.textContent = 'Reset'; }, 4000);
       });
     }
 
-    host.querySelectorAll('[data-lang]').forEach(function (b) {
-      b.addEventListener('click', function () {
+    host.querySelectorAll('[data-lang]').forEach(b => {
+      b.addEventListener('click', () => {
         Store.setSetting('language', b.dataset.lang);
         renderSettings();
         if (b.dataset.lang !== 'auto' && b.dataset.lang !== 'en') {
@@ -1855,33 +1641,33 @@
       });
     });
 
-    var verRepo = $('#ver-repo', host);
+    const verRepo = $('#ver-repo', host);
     if (verRepo) { verRepo.addEventListener('click', openRepo); }
 
-    var verGet = $('#ver-get', host);
+    const verGet = $('#ver-get', host);
     if (verGet) { verGet.addEventListener('click', openRepo); }
 
-    var verCheck = $('#ver-check', host);
+    const verCheck = $('#ver-check', host);
     if (verCheck) {
-      UpdateCheck.check(false).then(function (info) {
+      UpdateCheck.check(false).then(info => {
         if (info.latest && UpdateCheck.compare(info.latest, info.current) > 0) {
-          $('#ver-status', host).textContent = 'Version ' + info.latest + ' is available.';
+          $('#ver-status', host).textContent = `Version ${info.latest} is available.`;
           if (verGet) { verGet.style.display = ''; verGet.classList.add('btn-primary'); }
         }
       });
 
-      verCheck.addEventListener('click', function () {
-        var status = $('#ver-status', host);
+      verCheck.addEventListener('click', () => {
+        const status = $('#ver-status', host);
         verCheck.disabled = true;
         status.textContent = 'Checking...';
-        UpdateCheck.check(true).then(function (info) {
+        UpdateCheck.check(true).then(info => {
           verCheck.disabled = false;
           if (info.error) {
-            status.textContent = 'Could not reach GitHub (' + info.error + ').';
+            status.textContent = `Could not reach GitHub (${info.error}).`;
           } else if (info.latest && UpdateCheck.compare(info.latest, info.current) > 0) {
-            status.textContent = 'Version ' + info.latest + ' is available.';
+            status.textContent = `Version ${info.latest} is available.`;
             if (verGet) { verGet.style.display = ''; verGet.classList.add('btn-primary'); }
-            toast('Update available: ' + info.latest);
+            toast(`Update available: ${info.latest}`);
           } else {
             status.textContent = 'You are on the latest version.';
             if (verGet) { verGet.style.display = 'none'; }
@@ -1890,21 +1676,21 @@
       });
     }
 
-    var supCopy = $('#sup-copy', host);
+    const supCopy = $('#sup-copy', host);
     if (supCopy) {
-      supCopy.addEventListener('click', function () {
-        navigator.clipboard.writeText(SUPPORT_EMAIL).then(function () {
+      supCopy.addEventListener('click', () => {
+        navigator.clipboard.writeText(SUPPORT_EMAIL).then(() => {
           toast('Email address copied');
         });
       });
     }
 
-    var lq = $('#lang-q', host);
+    const lq = $('#lang-q', host);
     if (lq) {
-      lq.addEventListener('input', function () {
-        var q = lq.value.toLowerCase().trim();
-        host.querySelectorAll('[data-search]').forEach(function (n) {
-          n.style.display = !q || n.dataset.search.indexOf(q) >= 0 ? '' : 'none';
+      lq.addEventListener('input', () => {
+        const q = lq.value.toLowerCase().trim();
+        host.querySelectorAll('[data-search]').forEach(n => {
+          n.style.display = !q || n.dataset.search.includes(q) ? '' : 'none';
         });
       });
     }
@@ -1919,23 +1705,23 @@
   }
 
   function bind() {
-    $('#btn-search').addEventListener('click', function () {
+    $('#btn-search').addEventListener('click', () => {
       if (ui.searching) { closeSearch(); } else { openSearch(); }
     });
 
-    $('#search-input').addEventListener('input', function (e) {
+    $('#search-input').addEventListener('input', e => {
       ui.searchTerm = e.target.value.trim();
       applyTheme();
       renderGrid();
     });
-    $('#search-input').addEventListener('keydown', function (e) {
+    $('#search-input').addEventListener('keydown', e => {
       if (e.key === 'Escape') { closeSearch(); }
       if (e.key === 'Enter') {
-        var url = firstResult();
+        const url = firstResult();
         if (url) { openUrl(url, e.ctrlKey || e.metaKey); }
       }
     });
-    $('#search-overlay').addEventListener('mousedown', function (e) {
+    $('#search-overlay').addEventListener('mousedown', e => {
       if (!e.target.closest('#search-bar')) { closeSearch(); }
     });
 
@@ -1944,49 +1730,49 @@
     $('#btn-select').addEventListener('click', toggleSelect);
     $('#btn-settings').addEventListener('click', showSettings);
 
-    $('#btn-private').addEventListener('click', function () {
+    $('#btn-private').addEventListener('click', () => {
       ui.private = !ui.private;
       $('#btn-private').classList.toggle('on', !!ui.private);
       applyTheme();
       toast(ui.private ? 'Bookmark titles blurred' : 'Privacy blur off');
     });
 
-    $('#btn-zen').addEventListener('click', function () {
-      var body = document.body;
-      var all = body.classList.contains('zen');
-      var clockOnly = body.classList.contains('zen-clock');
+    $('#btn-zen').addEventListener('click', () => {
+      const body = document.body;
+      const all = body.classList.contains('zen');
+      const clockOnly = body.classList.contains('zen-clock');
       body.classList.remove('zen');
       body.classList.remove('zen-clock');
       if (!all && !clockOnly) { body.classList.add('zen'); }
       else if (all) { body.classList.add('zen-clock'); }
     });
-    $('#zen-exit').addEventListener('click', function () {
+    $('#zen-exit').addEventListener('click', () => {
       document.body.classList.remove('zen-clock');
       document.body.classList.remove('zen');
     });
 
-    $('#btn-rail-toggle').addEventListener('click', function () {
+    $('#btn-rail-toggle').addEventListener('click', () => {
       ui.railExpanded = !ui.railExpanded;
       $('#btn-rail-toggle').innerHTML = ui.railExpanded ? I.svg('x', 22) : I.svg('grip', 22);
       applyTheme();
     });
 
     $('#sel-done').addEventListener('click', toggleSelect);
-    $('#sel-open').addEventListener('click', function () {
-      var items = selectionList();
+    $('#sel-open').addEventListener('click', () => {
+      const items = selectionList();
       if (!items.length) { return; }
-      items.forEach(function (s) { window.open(s.link.url, '_blank', 'noopener'); });
+      items.forEach(s => { window.open(s.link.url, '_blank', 'noopener'); });
     });
-    $('#sel-delete').addEventListener('click', function () {
-      var items = selectionList();
-      items.forEach(function (s) { Store.deleteLink(s.boardId, s.link.id); });
+    $('#sel-delete').addEventListener('click', () => {
+      const items = selectionList();
+      items.forEach(s => { Store.deleteLink(s.boardId, s.link.id); });
       ui.selection = {};
-      toast(items.length + ' bookmarks moved to trash');
+      toast(`${items.length} bookmarks moved to trash`);
     });
     $('#sel-move').addEventListener('change', function () {
-      var target = this.value;
+      const target = this.value;
       if (!target) { return; }
-      selectionList().forEach(function (s) {
+      selectionList().forEach(s => {
         Store.moveLink(s.boardId, s.link.id, target);
       });
       ui.selection = {};
@@ -1994,14 +1780,14 @@
       toast('Bookmarks moved');
     });
 
-    $('#wallpaper-btn').addEventListener('click', function (e) {
+    $('#wallpaper-btn').addEventListener('click', e => {
       e.stopPropagation();
       ui.wpOpen = !ui.wpOpen;
       $('#wp-panel').classList.toggle('open', ui.wpOpen);
       $('#wallpaper-btn').classList.toggle('on', ui.wpOpen);
       if (ui.wpOpen) { renderWallpaperPanel(); }
     });
-    document.addEventListener('mousedown', function (e) {
+    document.addEventListener('mousedown', e => {
       if (!ui.wpOpen) { return; }
       if (e.target.closest('#wp-panel') || e.target.closest('#wallpaper-btn') || e.target.closest('.overlay')) { return; }
       ui.wpOpen = false;
@@ -2009,21 +1795,21 @@
       $('#wallpaper-btn').classList.remove('on');
     });
 
-    $('#mode-dark').addEventListener('click', function () { Store.setTheme('dark'); });
-    $('#mode-light').addEventListener('click', function () { Store.setTheme('light'); });
-    $('#wp-upload').addEventListener('click', function () { $('#wp-file').click(); });
+    $('#mode-dark').addEventListener('click', () => { Store.setTheme('dark'); });
+    $('#mode-light').addEventListener('click', () => { Store.setTheme('light'); });
+    $('#wp-upload').addEventListener('click', () => { $('#wp-file').click(); });
     $('#wp-file').addEventListener('change', function () {
       handleUpload(this.files[0]);
       this.value = '';
     });
     $('#wp-more').addEventListener('click', moreWallpapers);
 
-    $('#overlay').addEventListener('mousedown', function (e) {
+    $('#overlay').addEventListener('mousedown', e => {
       if (e.target === $('#overlay')) { closeModal(); }
     });
 
-    document.addEventListener('keydown', function (e) {
-      var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    document.addEventListener('keydown', e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
       if (e.key === 'Escape') {
         if ($('#overlay').classList.contains('open')) { closeModal(); return; }
         if (ui.searching) { closeSearch(); return; }
@@ -2044,41 +1830,41 @@
       }
     });
 
-    window.addEventListener('resize', function () {
+    window.addEventListener('resize', () => {
       clearTimeout(window._lumiResize);
       window._lumiResize = setTimeout(renderGrid, 140);
     });
 
-    chrome.runtime.onMessage.addListener(function (msg) {
-      if (msg && msg.type === 'refresh') { render(); }
+    chrome.runtime.onMessage.addListener(msg => {
+      if (msg?.type === 'refresh') { render(); }
     });
   }
 
   function openRepo() {
-    var url = UpdateCheck.REPO_URL;
+    const url = UpdateCheck.REPO_URL;
     try {
-      if (chrome.tabs && chrome.tabs.create) {
-        chrome.tabs.create({ url: url });
+      if (chrome.tabs?.create) {
+        chrome.tabs.create({ url });
         return;
       }
-    } catch (e) {  }
+    } catch {  }
     window.open(url, '_blank', 'noopener');
   }
 
   function showUpdateBanner(info) {
-    var el = $('#update-banner');
+    const el = $('#update-banner');
     if (!el) { return; }
-    $('#ub-title').textContent = 'Update available - version ' + info.latest;
+    $('#ub-title').textContent = `Update available - version ${info.latest}`;
     $('#ub-sub').textContent =
-      'You are on ' + info.current + '. Open the repo to download the new version.';
+      `You are on ${info.current}. Open the repo to download the new version.`;
     el.classList.add('open');
 
-    $('#ub-get').addEventListener('click', function () {
+    $('#ub-get').addEventListener('click', () => {
       openRepo();
       UpdateCheck.dismiss(info.latest);
       el.classList.remove('open');
     });
-    $('#ub-later').addEventListener('click', function () {
+    $('#ub-later').addEventListener('click', () => {
       UpdateCheck.dismiss(info.latest);
       el.classList.remove('open');
     });
@@ -2086,34 +1872,34 @@
 
   function runUpdateCheck() {
     if (!window.UpdateCheck) { return; }
-    UpdateCheck.pending().then(function (info) {
+    UpdateCheck.pending().then(info => {
       if (info) { showUpdateBanner(info); }
     });
   }
 
-  var clampClockIntoView = function () {};
+  let clampClockIntoView = () => {};
 
-  var CLOCK_MIN_SCALE = 0.35;
-  var CLOCK_MAX_SCALE = 3;
-  var CLOCK_MIN_STRETCH = 0.6;
-  var CLOCK_MAX_STRETCH = 2.6;
+  const CLOCK_MIN_SCALE = 0.35;
+  const CLOCK_MAX_SCALE = 3;
+  const CLOCK_MIN_STRETCH = 0.6;
+  const CLOCK_MAX_STRETCH = 2.6;
 
   function refreshClockGlass() {
-    var host = $('#clock');
-    var el = $('#clock-time');
-    var defs = $('#clock-defs');
+    const host = $('#clock');
+    const el = $('#clock-time');
+    const defs = $('#clock-defs');
     if (!host || !el || !defs) { return; }
 
-    var svg = defs.firstChild;
-    var mask = $('#clock-glass-mask', defs);
-    var text = $('#clock-glass-text', defs);
+    const svg = defs.firstChild;
+    const mask = $('#clock-glass-mask', defs);
+    const text = $('#clock-glass-text', defs);
     if (!svg || !mask || !text) { return; }
 
-    var box = host.getBoundingClientRect();
-    var er = el.getBoundingClientRect();
-    var w = Math.max(1, Math.round(box.width));
-    var h = Math.max(1, Math.round(box.height));
-    var cs = window.getComputedStyle(el);
+    const box = host.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    const w = Math.max(1, Math.round(box.width));
+    const h = Math.max(1, Math.round(box.height));
+    const cs = window.getComputedStyle(el);
 
     svg.setAttribute('width', w);
     svg.setAttribute('height', h);
@@ -2122,64 +1908,58 @@
     mask.setAttribute('width', w);
     mask.setAttribute('height', h);
 
-    var cx = er.left - box.left + er.width / 2;
-    var cy = er.top - box.top + er.height / 2;
+    const cx = er.left - box.left + er.width / 2;
+    const cy = er.top - box.top + er.height / 2;
 
     text.textContent = el.textContent;
     text.style.cssText =
-      'font-family:' + cs.fontFamily + ';' +
-      'font-size:' + cs.fontSize + ';' +
-      'font-weight:' + cs.fontWeight + ';' +
-      'font-variation-settings:' + cs.fontVariationSettings + ';' +
-      'letter-spacing:' + cs.letterSpacing + ';' +
-      'fill:#fff;';
+      `font-family:${cs.fontFamily};font-size:${cs.fontSize};font-weight:${cs.fontWeight};font-variation-settings:${cs.fontVariationSettings};letter-spacing:${cs.letterSpacing};fill:#fff;`;
 
     text.setAttribute('transform', '');
     text.setAttribute('x', cx);
     text.setAttribute('y', cy);
 
-    var bb = null;
-    try { bb = text.getBBox(); } catch (e) { bb = null; }
-    if (bb && bb.width) {
+    let bb = null;
+    try { bb = text.getBBox(); } catch { bb = null; }
+    if (bb?.width) {
       text.setAttribute('x', cx + (cx - (bb.x + bb.width / 2)));
       text.setAttribute('y', cy + (cy - (bb.y + bb.height / 2)));
     }
 
-    var squeeze = parseFloat(
+    let squeeze = parseFloat(
       getComputedStyle(document.documentElement).getPropertyValue('--clock-squeeze')
     );
     if (!isFinite(squeeze) || squeeze <= 0) { squeeze = 1; }
     if (squeeze !== 1) {
       text.setAttribute('transform',
-        'translate(' + cx + ' ' + cy + ') scale(' + squeeze + ' 1) ' +
-        'translate(' + (-cx) + ' ' + (-cy) + ')');
+        `translate(${cx} ${cy}) scale(${squeeze} 1) translate(${-cx} ${-cy})`);
     }
   }
 
   function clockPropsMenu(x, y) {
-    var st = Store.state.settings;
-    var wrap = document.createElement('div');
+    const st = Store.state.settings;
+    const wrap = document.createElement('div');
     wrap.className = 'menu clock-props';
 
     function section(title) {
-      var h = document.createElement('div');
+      const h = document.createElement('div');
       h.className = 'menu-head';
       h.textContent = title;
       wrap.appendChild(h);
     }
 
     section('Font');
-    var fonts = document.createElement('div');
+    const fonts = document.createElement('div');
     fonts.className = 'clock-fonts';
-    CLOCK_FONTS.forEach(function (f) {
-      var b = document.createElement('button');
-      b.className = 'clock-font' + (st.clockFont === f.id ? ' on' : '');
-      b.style.fontFamily = '"' + f.family + '"';
+    CLOCK_FONTS.forEach(f => {
+      const b = document.createElement('button');
+      b.className = `clock-font${st.clockFont === f.id ? ' on' : ''}`;
+      b.style.fontFamily = `"${f.family}"`;
       b.textContent = '12';
       b.title = f.label;
-      b.addEventListener('click', function () {
+      b.addEventListener('click', () => {
         Store.setSetting('clockFont', f.id);
-        fonts.querySelectorAll('.clock-font').forEach(function (n) {
+        fonts.querySelectorAll('.clock-font').forEach(n => {
           n.classList.remove('on');
         });
         b.classList.add('on');
@@ -2190,11 +1970,11 @@
     wrap.appendChild(fonts);
 
     section('Colour');
-    var colours = document.createElement('div');
+    const colours = document.createElement('div');
     colours.className = 'clock-colours';
 
-    var accent = document.createElement('button');
-    var custom = document.createElement('button');
+    const accent = document.createElement('button');
+    const custom = document.createElement('button');
     function markMode(mode) {
       accent.classList.toggle('btn-primary', mode !== 'custom');
       custom.classList.toggle('btn-primary', mode === 'custom');
@@ -2202,24 +1982,24 @@
 
     accent.className = 'btn btn-sm';
     accent.textContent = 'Accent';
-    accent.addEventListener('click', function () {
+    accent.addEventListener('click', () => {
       Store.setSetting('clockColorMode', 'accent');
       markMode('accent');
     });
 
     custom.className = 'btn btn-sm';
     custom.textContent = 'Custom';
-    custom.addEventListener('click', function () {
+    custom.addEventListener('click', () => {
       Store.setSetting('clockColorMode', 'custom');
       markMode('custom');
     });
 
-    var swatch = document.createElement('input');
+    const swatch = document.createElement('input');
     swatch.type = 'color';
     swatch.className = 'clock-swatch';
     swatch.value = st.clockColor || '#ffffff';
     swatch.title = 'Pick a colour';
-    swatch.addEventListener('input', function () {
+    swatch.addEventListener('input', () => {
       Store.setSetting('clockColor', swatch.value);
 
       Store.setSetting('clockColorMode', 'custom');
@@ -2233,14 +2013,14 @@
     wrap.appendChild(colours);
 
     section('Style');
-    var glassRow = document.createElement('div');
+    const glassRow = document.createElement('div');
     glassRow.className = 'clock-row';
-    var label = document.createElement('span');
+    const label = document.createElement('span');
     label.textContent = 'Glass';
-    var tog = document.createElement('button');
-    tog.className = 'toggle' + (st.clockGlass ? ' on' : '');
-    tog.addEventListener('click', function () {
-      var next = !Store.state.settings.clockGlass;
+    const tog = document.createElement('button');
+    tog.className = `toggle${st.clockGlass ? ' on' : ''}`;
+    tog.addEventListener('click', () => {
+      const next = !Store.state.settings.clockGlass;
       Store.setSetting('clockGlass', next);
       tog.classList.toggle('on', next);
       refreshClockGlass();
@@ -2250,27 +2030,27 @@
     wrap.appendChild(glassRow);
 
     section('Reset');
-    var resets = document.createElement('div');
+    const resets = document.createElement('div');
     resets.className = 'clock-colours';
 
-    var toHome = document.createElement('button');
+    const toHome = document.createElement('button');
     toHome.className = 'btn btn-sm';
     toHome.textContent = 'Position';
     toHome.title = 'Move the clock back to its default place';
-    toHome.addEventListener('click', function () {
+    toHome.addEventListener('click', () => {
       resetClock(['clockX', 'clockY']);
       refreshClockGlass();
     });
 
-    var toDefaults = document.createElement('button');
+    const toDefaults = document.createElement('button');
     toDefaults.className = 'btn btn-sm';
     toDefaults.textContent = 'Everything';
     toDefaults.title = 'Put every clock setting back to default';
-    toDefaults.addEventListener('click', function () {
+    toDefaults.addEventListener('click', () => {
       resetClock(CLOCK_KEYS);
-      var st2 = Store.state.settings;
+      const st2 = Store.state.settings;
 
-      fonts.querySelectorAll('.clock-font').forEach(function (n, i) {
+      fonts.querySelectorAll('.clock-font').forEach((n, i) => {
         n.classList.toggle('on', CLOCK_FONTS[i].id === st2.clockFont);
       });
       markMode(st2.clockColorMode);
@@ -2285,9 +2065,9 @@
 
     document.body.appendChild(wrap);
     document.body.classList.add('clock-menu');
-    var r = wrap.getBoundingClientRect();
-    wrap.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 12)) + 'px';
-    wrap.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 12)) + 'px';
+    const r = wrap.getBoundingClientRect();
+    wrap.style.left = `${Math.max(8, Math.min(x, window.innerWidth - r.width - 12))}px`;
+    wrap.style.top = `${Math.max(8, Math.min(y, window.innerHeight - r.height - 12))}px`;
 
     function close(e) {
       if (e && wrap.contains(e.target)) { return; }
@@ -2297,35 +2077,35 @@
       wrap.remove();
     }
     function onKey(e) { if (e.key === 'Escape') { close(); } }
-    setTimeout(function () {
+    setTimeout(() => {
       document.addEventListener('pointerdown', close, true);
       document.addEventListener('keydown', onKey, true);
     }, 0);
   }
 
-  var CLOCK_KEYS = [
+  const CLOCK_KEYS = [
     'clockFont', 'clockColorMode', 'clockColor', 'clockGlass',
     'clockScale', 'clockStretch', 'clockX', 'clockY'
   ];
 
   function resetClock(keys) {
-    var d = Store.defaultSettings();
-    keys.forEach(function (k) { Store.setSetting(k, d[k]); });
+    const d = Store.defaultSettings();
+    keys.forEach(k => { Store.setSetting(k, d[k]); });
   }
 
   function makeClockInteractive() {
-    var host = $('#clock');
+    const host = $('#clock');
     if (!host) { return; }
 
     function grip(id) {
-      var el = document.createElement('div');
+      const el = document.createElement('div');
       el.id = id;
       el.className = 'clock-grip';
       host.appendChild(el);
       return el;
     }
 
-    var defs = document.createElement('div');
+    const defs = document.createElement('div');
     defs.id = 'clock-defs';
     defs.innerHTML =
       '<svg xmlns="http://www.w3.org/2000/svg">' +
@@ -2335,51 +2115,51 @@
       '</mask></defs></svg>';
     host.appendChild(defs);
 
-    var glass = document.createElement('div');
+    const glass = document.createElement('div');
     glass.id = 'clock-glass';
     glass.style.setProperty('--clock-glass-mask', 'url(#clock-glass-mask)');
     host.insertBefore(glass, host.firstChild);
 
-    host.addEventListener('contextmenu', function (e) {
+    host.addEventListener('contextmenu', e => {
       e.preventDefault();
       clockPropsMenu(e.clientX, e.clientY);
     });
 
-    host.addEventListener('pointerenter', function () {
+    host.addEventListener('pointerenter', () => {
       document.body.classList.add('clock-hover');
     });
-    host.addEventListener('pointerleave', function () {
+    host.addEventListener('pointerleave', () => {
       document.body.classList.remove('clock-hover');
     });
 
-    var gripV = grip('clock-grip-v');
-    var gripH = grip('clock-grip-h');
+    const gripV = grip('clock-grip-v');
+    const gripH = grip('clock-grip-h');
     gripV.title = 'Drag to stretch';
     gripH.title = 'Drag to resize';
 
-    var drag = null;
+    let drag = null;
 
     function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
     function centre() {
-      var box = host.getBoundingClientRect();
-      return { x: box.left + box.width / 2, y: box.top + box.height / 2, box: box };
+      const box = host.getBoundingClientRect();
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2, box };
     }
 
     function commitPosition(cx, cy) {
-      var box = host.getBoundingClientRect();
-      var padX = (box.width / 2) / window.innerWidth * 100;
-      var padY = (box.height / 2) / window.innerHeight * 100;
-      var x = clamp(cx / window.innerWidth * 100, padX, 100 - padX);
-      var y = clamp(cy / window.innerHeight * 100, padY, 100 - padY);
+      const box = host.getBoundingClientRect();
+      const padX = (box.width / 2) / window.innerWidth * 100;
+      const padY = (box.height / 2) / window.innerHeight * 100;
+      const x = clamp(cx / window.innerWidth * 100, padX, 100 - padX);
+      const y = clamp(cy / window.innerHeight * 100, padY, 100 - padY);
       document.documentElement.style.setProperty('--clock-x', x);
       document.documentElement.style.setProperty('--clock-y', y);
-      return { x: x, y: y };
+      return { x, y };
     }
 
-    host.addEventListener('pointerdown', function (e) {
+    host.addEventListener('pointerdown', e => {
       if (e.button !== 0 || e.target === gripV || e.target === gripH) { return; }
-      var c = centre();
+      const c = centre();
       drag = { kind: 'move', dx: e.clientX - c.x, dy: e.clientY - c.y, moved: false };
       host.setPointerCapture(e.pointerId);
       host.classList.add('dragging');
@@ -2388,12 +2168,12 @@
     });
 
     function startResize(el, kind) {
-      el.addEventListener('pointerdown', function (e) {
+      el.addEventListener('pointerdown', e => {
         if (e.button !== 0) { return; }
-        var c = centre();
-        var st = Store.state.settings;
+        const c = centre();
+        const st = Store.state.settings;
         drag = {
-          kind: kind,
+          kind,
           from: Math.max(10, kind === 'stretch'
             ? Math.abs(e.clientY - c.y)
             : Math.abs(e.clientX - c.x)),
@@ -2415,7 +2195,7 @@
         drag.last = commitPosition(e.clientX - drag.dx, e.clientY - drag.dy);
         return;
       }
-      var c = centre();
+      const c = centre();
       if (drag.kind === 'stretch') {
         drag.value = clamp(drag.base * (Math.abs(e.clientY - c.y) / drag.from),
           CLOCK_MIN_STRETCH, CLOCK_MAX_STRETCH);
@@ -2441,8 +2221,8 @@
       } else if (typeof drag.value === 'number') {
         Store.setSetting(drag.kind === 'stretch' ? 'clockStretch' : 'clockScale', drag.value);
 
-        var c = centre();
-        var at = commitPosition(c.x, c.y);
+        const c = centre();
+        const at = commitPosition(c.x, c.y);
         Store.setSetting('clockX', at.x);
         Store.setSetting('clockY', at.y);
       }
@@ -2457,10 +2237,10 @@
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onUp);
 
-    clampClockIntoView = function () {
+    clampClockIntoView = () => {
       refreshClockGlass();
       if (drag) { return; }
-      var box = host.getBoundingClientRect();
+      const box = host.getBoundingClientRect();
       if (!box.width) { return; }
       commitPosition(box.left + box.width / 2, box.top + box.height / 2);
     };
@@ -2470,45 +2250,55 @@
   }
 
   function startClock() {
-    var el = $("#clock-time");
+    const el = $("#clock-time");
     if (!el) { return; }
 
+    function readClock() {
+      if (globalThis.Temporal) {
+        const t = Temporal.Now.plainTimeISO();
+        return { hour: t.hour, minute: t.minute, second: t.second, ms: t.millisecond };
+      }
+      const d = new Date();
+      return {
+        hour: d.getHours(), minute: d.getMinutes(),
+        second: d.getSeconds(), ms: d.getMilliseconds()
+      };
+    }
+
     function paint() {
-      var now = new Date();
-      var h = now.getHours() % 12;
-      if (h === 0) { h = 12; }
-      var m = now.getMinutes();
-      el.textContent = h + ":" + (m < 10 ? "0" + m : m);
+      const now = readClock();
+      const hour = now.hour % 12 || 12;
+      el.textContent = `${hour}:${String(now.minute).padStart(2, '0')}`;
       refreshClockGlass();
       return now;
     }
 
     function schedule() {
-      var now = paint();
-      var ms = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+      const now = paint();
+      const ms = (60 - now.second) * 1000 - now.ms;
       setTimeout(schedule, Math.max(ms, 1000));
     }
 
     schedule();
 
-    document.addEventListener("visibilitychange", function () {
+    document.addEventListener("visibilitychange", () => {
       if (!document.hidden) { paint(); }
     });
   }
 
-  Store.load().then(function () {
+  (async () => {
+    await Store.load();
     Store.subscribe(render);
     bind();
     startClock();
     makeClockInteractive();
-
-    calibrateAllClockFonts().then(function () {
-      render();
-      refreshClockGlass();
-    });
     $('#btn-rail-toggle').innerHTML = I.svg('grip', 22);
     render();
 
+    await calibrateAllClockFonts();
+    render();
+    refreshClockGlass();
+
     setTimeout(runUpdateCheck, 1200);
-  });
+  })();
 })();

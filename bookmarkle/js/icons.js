@@ -1,9 +1,9 @@
-(function (global) {
+(global => {
   'use strict';
 
-  var P = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const P = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 
-  var D = {
+  const D = {
     link:      '<path d="M10 13a4 4 0 006 .5l2.5-2.5a4 4 0 00-5.7-5.7L11.5 6.6"/><path d="M14 11a4 4 0 00-6-.5L5.5 13a4 4 0 005.7 5.7l1.2-1.2"/>',
     dots:      '<circle cx="12" cy="5.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none"/>',
     external:  '<path d="M14 4h6v6"/><path d="M20 4l-8.5 8.5"/><path d="M18 14v5.4A1.6 1.6 0 0116.4 21H4.6A1.6 1.6 0 013 19.4V7.6A1.6 1.6 0 014.6 6H10"/>',
@@ -28,10 +28,10 @@
   };
 
   function svg(name, size) {
-    var d = D[name] || '';
-    var s = size || 24;
-    return '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" ' + P + '>' + d + '</svg>';
+    const d = D[name] || '';
+    const s = size || 24;
+    return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" ${P}>${d}</svg>`;
   }
 
-  global.Icons = { svg: svg, paths: D };
+  global.Icons = { svg, paths: D };
 })(typeof window !== 'undefined' ? window : globalThis);
