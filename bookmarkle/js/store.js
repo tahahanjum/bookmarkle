@@ -15,6 +15,11 @@
 
       clockX: 50,
       clockY: 10,
+
+      clockAnchorX: 'center',
+      clockAnchorY: 'top',
+      clockOffsetX: 0,
+      clockOffsetY: 60,
       clockScale: 1,
 
       clockStretch: 1,
@@ -23,6 +28,13 @@
       clockColorMode: 'accent',
       clockColor: '#ffffff',
       clockGlass: false,
+
+      clockShadow: true,
+      clockShadowColor: '#000000',
+      clockShadowAngle: 90,
+      clockShadowDistance: 6,
+      clockShadowBlur: 18,
+      clockShadowOpacity: 0.45,
       groupTools: false,
       hideExtraBookmarks: false,
       shortenTitles: true,
@@ -86,7 +98,10 @@
   function migrate(data) {
     if (!data || typeof data !== 'object') { return seed(); }
     if (!Array.isArray(data.pages) || !data.pages.length) { return seed(); }
+
+    const hadNoAnchor = !!data.settings && !data.settings.clockAnchorX;
     data.settings = { ...defaultSettings(), ...(data.settings || {}) };
+    if (hadNoAnchor) { data.settings.clockNeedsAnchor = true; }
     data.themes = data.themes || {};
     ['dark', 'light'].forEach(mode => {
       const isLight = mode === 'light';

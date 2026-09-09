@@ -71,7 +71,9 @@ Text on accent surfaces flips between white and near-black for contrast.
 one), multi-select, Trash, hide-interface, Settings. With *Group right-side tools* on, the middle five collapse behind one button.
 
 **Settings** — General (appearance and behaviour toggles, quick-save destination, shortcut),
-Account (local storage summary, export, import, reset), Language, Support.
+Account (local storage summary, export, import, reset), Language, Support. The whole
+panel and the toolbar popup are translated into 17 languages; Language picks one, or leave
+it on Automatic to follow the browser. Arabic lays the panel out right-to-left.
 
 **Trash** — deleted bookmarks, boards and pages are recoverable until you empty it.
 
@@ -100,6 +102,7 @@ window. `Ctrl+Shift+Y` quick-saves; change it at `chrome://extensions/shortcuts`
 | `js/gallery.js` | The More Wallpapers page |
 | `js/store.js` | Data model, persistence, all mutations |
 | `js/icons.js` | Inline SVG icon set |
+| `js/i18n.js` | Translation tables for the settings and popup, 17 languages |
 | `js/app.js` | Rendering, drag and drop, dialogs, settings |
 | `background.js` | Title fetching, quick save, save all tabs |
 | `popup.html` / `popup.js` | Toolbar popup |

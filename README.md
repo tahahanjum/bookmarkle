@@ -57,6 +57,11 @@ boards, and dropping a board onto a page tab moves it to that page.
 - **Wallpapers** — 23 bundled (default: **Final Rest**), plus a built-in gallery of ~1000 more. The accent colour
   is derived from whatever wallpaper you pick. Dark and Light each remember their own.
 - **Search** — press `/` or `Ctrl+K`.
+- **Languages** — the settings and the toolbar popup are translated into 17 languages
+  (English, German, Dutch, French, Spanish, Portuguese, Italian, Polish, Turkish, Russian,
+  Japanese, Korean, Chinese, Hindi, Indonesian, Vietnamese and Arabic, which lays out
+  right-to-left). Pick one under Settings > Language, or leave it on Automatic to follow
+  your browser.
 - **Privacy blur** — blurs every board until you hover one; handy when sharing a screen.
 - **Trash** — deleted bookmarks, boards and pages can be restored.
 - **Quick save** — `Ctrl+Shift+Y` saves the page you're on. The toolbar icon can also
@@ -83,11 +88,15 @@ Full documentation is in [`bookmarkle/README.md`](bookmarkle/README.md).
 
 - Your pages, boards, bookmarks and settings live in `chrome.storage.local`, on your
   machine only.
-- The extension makes exactly three kinds of outbound request, all of them triggered by
+- The extension makes four kinds of outbound request, all of them triggered by
   something you did:
   - fetching the **title** of a URL you are adding;
   - loading **favicons** from `google.com/s2/favicons`;
-  - loading **wallpaper images** when you open the gallery or apply one.
+  - loading **wallpaper images** when you open the gallery or apply one;
+  - fetching **search suggestions** from Google as you type in the search bar.
+- The search bar is the one place where what you type leaves your machine. Typing sends
+  the query to Google to get suggestions back, the same as typing in the address bar
+  does. Nothing is sent until you type, and nothing about your bookmarks is included.
 - No analytics, no accounts, no telemetry.
 
 ---

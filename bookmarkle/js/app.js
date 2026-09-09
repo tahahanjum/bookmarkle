@@ -6,7 +6,6 @@
 
   const ui = {
     searchTerm: '',
-    searching: false,
     selecting: false,
     selection: {},
     expanded: {},
@@ -92,6 +91,22 @@
       wght,
       squeeze: Math.round(squeeze * 1000) / 1000
     };
+  }
+
+  function writeClockShadow(root, s) {
+    if (s.clockShadow === false) {
+      root.style.setProperty('--clock-shadow', 'none');
+      return;
+    }
+    const angle = num(s.clockShadowAngle, 90) * Math.PI / 180;
+    const distance = num(s.clockShadowDistance, 6);
+    const x = Math.round(Math.cos(angle) * distance * 100) / 100;
+    const y = Math.round(Math.sin(angle) * distance * 100) / 100;
+    const blur = num(s.clockShadowBlur, 18);
+    const rgba = hexToRgba(s.clockShadowColor || '#000000', num(s.clockShadowOpacity, 0.45));
+    root.style.setProperty('--clock-shadow',
+      `calc(${x}px * var(--clock-scale, 1)) calc(${y}px * var(--clock-scale, 1)) ` +
+      `calc(${blur}px * var(--clock-scale, 1)) ${rgba}`);
   }
 
   function writeClockAxes(root, stretch, fontId) {
@@ -202,8 +217,7 @@
     root.setAttribute('data-compact', s.compactMode ? '1' : '0');
     root.setAttribute('data-shorten', s.shortenTitles ? '1' : '0');
     root.setAttribute('data-clock', s.showClock === false ? '0' : '1');
-    root.style.setProperty('--clock-x', num(s.clockX, 50));
-    root.style.setProperty('--clock-y', num(s.clockY, 10));
+    writeClockPosition(root, s);
     root.style.setProperty('--clock-scale', num(s.clockScale, 1));
     root.style.setProperty('--clock-stretch', num(s.clockStretch, 1));
     root.style.setProperty('--clock-family',
@@ -211,6 +225,7 @@
     root.style.setProperty('--clock-ink',
       s.clockColorMode === 'custom' ? (s.clockColor || '#ffffff') : t.primary);
     root.setAttribute('data-clock-glass', s.clockGlass ? '1' : '0');
+    writeClockShadow(root, s);
     writeClockAxes(root, s.clockStretch, s.clockFont);
 
     clampClockIntoView();
@@ -234,7 +249,7 @@
 
     document.body.classList.toggle('private', !!ui.private);
     document.body.classList.toggle('selecting', ui.selecting);
-    document.body.classList.toggle('searching', ui.searching && !!ui.searchTerm);
+    document.body.classList.toggle('searching', !!ui.searchTerm);
 
     const rail = $('#rail');
     rail.classList.toggle('grouped', !!s.groupTools);
@@ -1019,21 +1034,90 @@
     $('#overlay-content').innerHTML = '';
   }
 
-  function openSearch() {
-    ui.searching = true;
-    $('#search-overlay').classList.add('open');
-    const input = $('#search-input');
-    input.value = ui.searchTerm;
-    input.focus();
-    input.select();
-    applyTheme();
+  const SEARCH_URL = 'https://www.google.com/search?q=';
+
+  let suggestTimer = null;
+  let suggestSeq = 0;
+  let suggestions = [];
+  let suggestIndex = -1;
+
+  function suggestBox() { return $('#search-suggest'); }
+
+  function hideSuggestions() {
+    suggestions = [];
+    suggestIndex = -1;
+    const box = suggestBox();
+    if (box) { box.innerHTML = ''; box.classList.remove('open'); }
   }
 
-  function closeSearch() {
-    ui.searching = false;
+  function renderSuggestions() {
+    const box = suggestBox();
+    if (!box) { return; }
+    if (!suggestions.length) { hideSuggestions(); return; }
+    box.innerHTML = '';
+    suggestions.forEach((text, i) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = `suggest-row${i === suggestIndex ? ' on' : ''}`;
+      row.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"' +
+        ' stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>' +
+        `<span>${esc(text)}</span>`;
+      row.addEventListener('click', () => {
+        hideSuggestions();
+        runWebSearch(text, false);
+      });
+      box.appendChild(row);
+    });
+    box.classList.add('open');
+  }
+
+  function requestSuggestions(query) {
+    clearTimeout(suggestTimer);
+    const q = query.trim();
+    if (!q) { hideSuggestions(); return; }
+    suggestTimer = setTimeout(() => {
+      const seq = ++suggestSeq;
+      try {
+        chrome.runtime.sendMessage({ type: 'suggest', q }, res => {
+          if (seq !== suggestSeq) { return; }
+          if (chrome.runtime.lastError) { return; }
+          suggestions = (res && res.items) || [];
+          suggestIndex = -1;
+          renderSuggestions();
+        });
+      } catch { hideSuggestions(); }
+    }, 140);
+  }
+
+  function moveSuggestion(step) {
+    if (!suggestions.length) { return false; }
+    suggestIndex += step;
+    if (suggestIndex < -1) { suggestIndex = suggestions.length - 1; }
+    if (suggestIndex >= suggestions.length) { suggestIndex = -1; }
+    renderSuggestions();
+    return true;
+  }
+
+  function focusSearch() {
+    const input = $('#search-input');
+    if (!input) { return; }
+    input.focus();
+    input.select();
+  }
+
+  function clearSearch() {
     ui.searchTerm = '';
-    $('#search-overlay').classList.remove('open');
+    const input = $('#search-input');
+    if (input) { input.value = ''; }
+    hideSuggestions();
     render();
+  }
+
+  function runWebSearch(query, newTab) {
+    const q = query.trim();
+    if (!q) { return; }
+    openUrl(SEARCH_URL + encodeURIComponent(q), newTab);
   }
 
   function firstResult() {
@@ -1492,13 +1576,16 @@
     const host = $('#set-modal');
     if (!host) { return; }
     const tabs = [
-      ['general', 'General', 'gear'],
-      ['account', 'Account', 'user'],
-      ['language', 'Language', 'globe'],
-      ['support', 'Support', 'bug']
+      ['general', I18n.t('nav.general'), 'gear'],
+      ['account', I18n.t('nav.account'), 'user'],
+      ['language', I18n.t('nav.language'), 'globe'],
+      ['updates', I18n.t('nav.updates'), 'download'],
+      ['support', I18n.t('nav.support'), 'bug']
     ];
     host.innerHTML =
-      `<aside class="settings-nav"><h2>Settings</h2>${tabs.map(t => `<button class="nav-item${settingsTab === t[0] ? ' active' : ''}" data-tab="${t[0]}">${I.svg(t[2], 19)}<span>${t[1]}</span></button>`).join('')}</aside><div class="settings-body" id="set-body"><button class="settings-close" data-close>${I.svg('x', 18)}</button>${settingsBody()}</div>`;
+      `<aside class="settings-nav"><h2>${I18n.t('nav.title')}</h2>${tabs.map(t => `<button class="nav-item${settingsTab === t[0] ? ' active' : ''}" data-tab="${t[0]}">${I.svg(t[2], 19)}<span>${t[1]}</span></button>`).join('')}</aside><div class="settings-body" id="set-body"><button class="settings-close" data-close>${I.svg('x', 18)}</button>${settingsBody()}</div>`;
+
+    host.dir = I18n.current() === 'ar' ? 'rtl' : 'ltr';
 
     host.querySelectorAll('[data-tab]').forEach(b => {
       b.addEventListener('click', () => { settingsTab = b.dataset.tab; renderSettings(); });
@@ -1518,10 +1605,10 @@
     const st = Store.state;
 
     if (settingsTab === 'general') {
-      const pageOpts = [`<option value="current"${st.settings.quickSaveDestination === 'current' ? ' selected' : ''}>Current Page</option>`]
+      const pageOpts = [`<option value="current"${st.settings.quickSaveDestination === 'current' ? ' selected' : ''}>${I18n.t('general.currentPage')}</option>`]
         .concat(st.pages.map(p => `<option value="${p.id}"${st.settings.quickSaveDestination === p.id ? ' selected' : ''}>${esc(p.name)}</option>`)).join('');
 
-      return `<h1>General Settings</h1><div class="settings-rule"></div><div class="group"><div class="group-title">Appearance</div>${toggleRow('compactMode', 'Compact mode', 'Reduce spacing to show more bookmarks.')}${toggleRow('showClock', 'Show clock', 'Display the time in the middle of the top bar.')}${toggleRow('groupTools', 'Group right-side tools', 'Keep Search and Settings visible, and group the other right-side buttons into one menu on this device.')}${toggleRow('hideExtraBookmarks', 'Hide extra bookmarks in long boards', 'Automatically hide extra bookmarks in long boards.')}${toggleRow('shortenTitles', 'Shorten long titles', 'Show titles on one line with "...".')}</div><div class="group"><div class="group-title">Behavior</div>${toggleRow('openInNewTab', 'Open links in new tab', 'Open bookmarks in a new browser tab.')}${toggleRow('showDescriptions', 'Show bookmark descriptions', 'Display saved descriptions below bookmark titles.')}${toggleRow('closeTabsAfterSaveAll', 'Close tabs after Save All Tabs', 'Automatically close the saved tabs in the current window.')}<div class="row"><div class="row-text"><div class="row-title">Quick Save destination</div><div class="row-sub">Where to save new links.</div></div><select class="select" id="set-qs">${pageOpts}</select></div><div class="row"><div class="row-text"><div class="row-title">Change quick save shortcut</div><div class="row-sub">Open browser shortcut settings to change this key.</div></div><span class="kbd">Ctrl+Shift+Y</span><button class="btn btn-sm" id="set-shortcut">Change</button></div></div><div class="group"><div class="group-title">Chrome bookmarks</div><div class="row"><div class="row-text"><div class="row-title">Import Chrome bookmarks</div><div class="row-sub">Collect every bookmark saved in this Chrome profile into a board called "${CHROME_BOARD_TITLE}" on the current page. Folders are flattened into the one board. Running it again refreshes that board instead of adding a second one, and your Chrome bookmarks are only read, never changed.</div></div><button class="btn" id="set-chrome-bm">Import</button></div></div>`;
+      return `<h1>${I18n.t('general.h1')}</h1><div class="settings-rule"></div><div class="group"><div class="group-title">${I18n.t('general.appearance')}</div>${toggleRow('compactMode', I18n.t('general.compact'), I18n.t('general.compactSub'))}${toggleRow('showClock', I18n.t('general.clock'), I18n.t('general.clockSub'))}${toggleRow('groupTools', I18n.t('general.group'), I18n.t('general.groupSub'))}${toggleRow('hideExtraBookmarks', I18n.t('general.hideExtra'), I18n.t('general.hideExtraSub'))}${toggleRow('shortenTitles', I18n.t('general.shorten'), I18n.t('general.shortenSub'))}</div><div class="group"><div class="group-title">${I18n.t('general.behavior')}</div>${toggleRow('openInNewTab', I18n.t('general.newTab'), I18n.t('general.newTabSub'))}${toggleRow('showDescriptions', I18n.t('general.desc'), I18n.t('general.descSub'))}${toggleRow('closeTabsAfterSaveAll', I18n.t('general.closeTabs'), I18n.t('general.closeTabsSub'))}<div class="row"><div class="row-text"><div class="row-title">${I18n.t('general.qs')}</div><div class="row-sub">${I18n.t('general.qsSub')}</div></div><select class="select" id="set-qs">${pageOpts}</select></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('general.shortcut')}</div><div class="row-sub">${I18n.t('general.shortcutSub')}</div></div><span class="kbd">Ctrl+Shift+Y</span><button class="btn btn-sm" id="set-shortcut">${I18n.t('general.change')}</button></div></div>`;
     }
 
     if (settingsTab === 'account') {
@@ -1533,37 +1620,41 @@
           c.forEach(b => { links += b.links.length; });
         });
       });
-      return `<h1>Account</h1><div class="settings-rule"></div><div class="group"><div class="group-title">This device</div><div class="row"><div class="row-text"><div class="row-title">Local storage only</div><div class="row-sub">Bookmarkle has no account and no server. Everything you see is stored in this browser profile, and nothing is ever uploaded. Use Export to move your data to another machine.</div></div></div><div class="row"><div class="row-text"><div class="row-title">What you have saved</div><div class="row-sub">${st.pages.length} page${st.pages.length > 1 ? 's' : ''} &middot; ${boards} boards &middot; ${links} bookmarks &middot; ${st.wallpapers.user.length} uploaded wallpapers</div></div></div></div><div class="group"><div class="group-title">Data</div><div class="row"><div class="row-text"><div class="row-title">Download your data</div><div class="row-sub">Export every page, board and bookmark as a JSON file.</div></div><button class="btn" id="set-export">Download Data</button></div><div class="row"><div class="row-text"><div class="row-title">Import a backup</div><div class="row-sub">Replace everything with a previously exported file.</div></div><button class="btn" id="set-import">Import</button></div><div class="row"><div class="row-text"><div class="row-title">Reset everything</div><div class="row-sub">Delete all local data and return to the starter layout. This cannot be undone.</div></div><button class="btn btn-danger" id="set-reset">Reset</button></div></div><input type="file" id="set-file" accept="application/json,.json" hidden>`;
+      return `<h1>${I18n.t('account.h1')}</h1><div class="settings-rule"></div><div class="group"><div class="group-title">${I18n.t('account.device')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.local')}</div><div class="row-sub">${I18n.t('account.localSub')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.saved')}</div><div class="row-sub">${st.pages.length} ${I18n.t('account.pages')} &middot; ${boards} ${I18n.t('account.boards')} &middot; ${links} ${I18n.t('account.bookmarks')} &middot; ${st.wallpapers.user.length} ${I18n.t('account.wallpapers')}</div></div></div></div><div class="group"><div class="group-title">${I18n.t('account.data')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.download')}</div><div class="row-sub">${I18n.t('account.downloadSub')}</div></div><button class="btn" id="set-export">${I18n.t('account.downloadBtn')}</button></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.import')}</div><div class="row-sub">${I18n.t('account.importSub')}</div></div><button class="btn" id="set-import">${I18n.t('account.importBtn')}</button></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.reset')}</div><div class="row-sub">${I18n.t('account.resetSub')}</div></div><button class="btn btn-danger" id="set-reset">${I18n.t('account.resetBtn')}</button></div></div><div class="group"><div class="group-title">${I18n.t('account.chrome')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.chromeImport')}</div><div class="row-sub">${I18n.t('account.chromeSub')} ${I18n.t('account.chromeBoard', { board: CHROME_BOARD_TITLE })}</div></div><button class="btn" id="set-chrome-bm">${I18n.t('account.importBtn')}</button></div></div><input type="file" id="set-file" accept="application/json,.json" hidden>`;
     }
 
+    if (settingsTab === 'updates') {
+      return `<h1>${I18n.t('updates.h1')}</h1><div class="settings-rule"></div>` +
+        `<div class="group"><div class="group-title">${I18n.t('updates.version')}</div><div class="row"><div class="row-text"><div class="row-title">Bookmarkle ${esc(window.UpdateCheck ? UpdateCheck.currentVersion() : '')}</div><div class="row-sub" id="ver-status">${I18n.t('updates.checkSub')}</div></div><button class="btn btn-sm" id="ver-get" style="display:none">${I18n.t('updates.download')}</button><button class="btn btn-sm" id="ver-check">${I18n.t('updates.check')}</button></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('updates.project')}</div><div class="row-sub">${I18n.t('updates.projectSub')}</div></div><button class="btn btn-sm" id="ver-repo">${I18n.t('updates.openGithub')}</button></div></div>`;
+    }
     if (settingsTab === 'language') {
       const langs = [
-        ['auto', 'Automatic', 'Browser language', true],
-        ['en', 'English', '', true],
-        ['de', 'Deutsch', 'German', false],
-        ['nl', 'Nederlands', 'Dutch', false],
-        ['fr', 'Français', 'French', false],
-        ['ja', '日本語', 'Japanese', false],
-        ['ko', '한국어', 'Korean', false],
-        ['hi', 'हिन्दी', 'Hindi', false],
-        ['es', 'Español', 'Spanish', false],
-        ['pt', 'Português (Brasil)', 'Portuguese (Brazil)', false],
-        ['zh', '简体中文', 'Chinese (Simplified)', false],
-        ['id', 'Bahasa Indonesia', 'Indonesian', false],
-        ['ru', 'Русский', 'Russian', false],
-        ['it', 'Italiano', 'Italian', false],
-        ['tr', 'Türkçe', 'Turkish', false],
-        ['pl', 'Polski', 'Polish', false],
-        ['vi', 'Tiếng Việt', 'Vietnamese', false],
-        ['ar', 'العربية', 'Arabic', false]
+        ['auto', 'Automatic', 'Browser language'],
+        ['en', 'English', ''],
+        ['de', 'Deutsch', 'German'],
+        ['nl', 'Nederlands', 'Dutch'],
+        ['fr', 'Français', 'French'],
+        ['ja', '日本語', 'Japanese'],
+        ['ko', '한국어', 'Korean'],
+        ['hi', 'हिन्दी', 'Hindi'],
+        ['es', 'Español', 'Spanish'],
+        ['pt', 'Português (Brasil)', 'Portuguese (Brazil)'],
+        ['zh', '简体中文', 'Chinese (Simplified)'],
+        ['id', 'Bahasa Indonesia', 'Indonesian'],
+        ['ru', 'Русский', 'Russian'],
+        ['it', 'Italiano', 'Italian'],
+        ['tr', 'Türkçe', 'Turkish'],
+        ['pl', 'Polski', 'Polish'],
+        ['vi', 'Tiếng Việt', 'Vietnamese'],
+        ['ar', 'العربية', 'Arabic']
       ];
-      return `<h1>Language</h1><div class="settings-rule"></div><input class="field" id="lang-q" placeholder="Search languages" style="margin-bottom:18px"><div class="row-sub" style="margin-bottom:16px">This build ships with English. The other locales are listed so translation files can be dropped in later - picking one now keeps English.</div><div id="lang-list">${langs.map(l => {
+      return `<h1>${I18n.t('language.h1')}</h1><div class="settings-rule"></div><input class="field" id="lang-q" placeholder="${I18n.t('language.search')}" style="margin-bottom:18px"><div class="row-sub" style="margin-bottom:16px">${I18n.t('language.note')}</div><div id="lang-list">${langs.map(l => {
     const active = st.settings.language === l[0];
-    return `<button class="lang-item${active ? ' active' : ''}" data-lang="${l[0]}" data-search="${esc((`${l[1]} ${l[2]}`).toLowerCase())}"><span class="lang-name">${l[1]}</span>${l[2] ? `<span class="lang-en">${l[2]}</span>` : ''}${l[3] ? '<span class="lang-radio"></span>' : '<span class="lang-soon">not translated yet</span>'}</button>`;
+    return `<button class="lang-item${active ? ' active' : ''}" data-lang="${l[0]}" data-search="${esc((`${l[1]} ${l[2]}`).toLowerCase())}"><span class="lang-name">${l[1]}</span>${l[2] ? `<span class="lang-en">${l[2]}</span>` : ''}<span class="lang-radio"></span></button>`;
   }).join('')}</div>`;
     }
 
-    return `<h1>Support</h1><div class="settings-rule"></div><div class="group"><div class="group-title">Version</div><div class="row"><div class="row-text"><div class="row-title">Bookmarkle ${esc(window.UpdateCheck ? UpdateCheck.currentVersion() : '')}</div><div class="row-sub" id="ver-status">Checks GitHub once a day for a newer version.</div></div><button class="btn btn-sm" id="ver-get" style="display:none">Download update</button><button class="btn btn-sm" id="ver-check">Check now</button></div><div class="row"><div class="row-text"><div class="row-title">Project page</div><div class="row-sub">Source code, releases and how to update.</div></div><button class="btn btn-sm" id="ver-repo">Open GitHub</button></div></div><div class="group"><div class="group-title">Report a problem</div><div class="row"><div class="row-text"><div class="row-title">Found a bug, or something not working?</div><div class="row-sub">Email <a class="support-mail" href="mailto:${SUPPORT_EMAIL}?subject=Bookmarkle%20issue%20report">${SUPPORT_EMAIL}</a> with what happened and it will be looked into. Bug reports, broken sites, feature requests and any other problems are all welcome.</div></div><button class="btn btn-sm" id="sup-copy">Copy email</button></div></div><div class="group"><div class="group-title">Keyboard</div><div class="row"><div class="row-text"><div class="row-title">/ or Ctrl+K</div><div class="row-sub">Open search</div></div></div><div class="row"><div class="row-text"><div class="row-title">Esc</div><div class="row-sub">Close search, menus and dialogs</div></div></div><div class="row"><div class="row-text"><div class="row-title">Ctrl+Shift+Y</div><div class="row-sub">Quick save the page you are on</div></div></div><div class="row"><div class="row-text"><div class="row-title">Double click a board title</div><div class="row-sub">Rename it inline</div></div></div><div class="row"><div class="row-text"><div class="row-title">Right click a bookmark or page tab</div><div class="row-sub">Open its context menu</div></div></div></div><div class="group"><div class="group-title">Tips</div><div class="row"><div class="row-text"><div class="row-title">Drag things around</div><div class="row-sub">Boards drag between columns, bookmarks drag between boards, and dropping a board on a page tab moves it to that page.</div></div></div><div class="row"><div class="row-text"><div class="row-title">Wallpapers drive the colours</div><div class="row-sub">Upload any image and Bookmarkle picks the accent and board tint from it. Fine-tune with the pencil on the wallpaper card.</div></div></div></div>`;
+    return `<h1>${I18n.t('support.h1')}</h1><div class="settings-rule"></div><div class="group"><div class="group-title">${I18n.t('support.report')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.bug')}</div><div class="row-sub">${I18n.t('support.bugSub', { mail: `<a class="support-mail" href="mailto:${SUPPORT_EMAIL}?subject=Bookmarkle%20issue%20report">${SUPPORT_EMAIL}</a>` })}</div></div><button class="btn btn-sm" id="sup-copy">${I18n.t('support.copyMail')}</button></div></div><div class="group"><div class="group-title">${I18n.t('support.keyboard')}</div><div class="row"><div class="row-text"><div class="row-title">/ &middot; Ctrl+K</div><div class="row-sub">${I18n.t('support.kbSearch')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Esc</div><div class="row-sub">${I18n.t('support.kbEsc')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Ctrl+Shift+Y</div><div class="row-sub">${I18n.t('support.kbSave')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbRenameKey')}</div><div class="row-sub">${I18n.t('support.kbRename')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbMenuKey')}</div><div class="row-sub">${I18n.t('support.kbMenu')}</div></div></div></div><div class="group"><div class="group-title">${I18n.t('support.tips')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipDrag')}</div><div class="row-sub">${I18n.t('support.tipDragSub')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipWall')}</div><div class="row-sub">${I18n.t('support.tipWallSub')}</div></div></div></div>`;
   }
 
   function wireSettings(host) {
@@ -1624,20 +1715,18 @@
     const rs = $('#set-reset', host);
     if (rs) {
       rs.addEventListener('click', () => {
-        if (rs.dataset.armed) { Store.resetAll(); renderSettings(); toast('Everything reset'); return; }
+        if (rs.dataset.armed) { Store.resetAll(); renderSettings(); toast(I18n.t('toast.reset')); return; }
         rs.dataset.armed = '1';
-        rs.textContent = 'Click again to confirm';
-        setTimeout(() => { delete rs.dataset.armed; rs.textContent = 'Reset'; }, 4000);
+        rs.textContent = I18n.t('account.confirmReset');
+        setTimeout(() => { delete rs.dataset.armed; rs.textContent = I18n.t('account.resetBtn'); }, 4000);
       });
     }
 
     host.querySelectorAll('[data-lang]').forEach(b => {
       b.addEventListener('click', () => {
         Store.setSetting('language', b.dataset.lang);
+        I18n.setLanguage(b.dataset.lang);
         renderSettings();
-        if (b.dataset.lang !== 'auto' && b.dataset.lang !== 'en') {
-          toast('That language is not translated yet - staying on English');
-        }
       });
     });
 
@@ -1651,7 +1740,7 @@
     if (verCheck) {
       UpdateCheck.check(false).then(info => {
         if (info.latest && UpdateCheck.compare(info.latest, info.current) > 0) {
-          $('#ver-status', host).textContent = `Version ${info.latest} is available.`;
+          $('#ver-status', host).textContent = I18n.t('updates.available', { v: info.latest });
           if (verGet) { verGet.style.display = ''; verGet.classList.add('btn-primary'); }
         }
       });
@@ -1659,17 +1748,17 @@
       verCheck.addEventListener('click', () => {
         const status = $('#ver-status', host);
         verCheck.disabled = true;
-        status.textContent = 'Checking...';
+        status.textContent = I18n.t('updates.checking');
         UpdateCheck.check(true).then(info => {
           verCheck.disabled = false;
           if (info.error) {
-            status.textContent = `Could not reach GitHub (${info.error}).`;
+            status.textContent = I18n.t('updates.unreachable', { err: info.error });
           } else if (info.latest && UpdateCheck.compare(info.latest, info.current) > 0) {
-            status.textContent = `Version ${info.latest} is available.`;
+            status.textContent = I18n.t('updates.available', { v: info.latest });
             if (verGet) { verGet.style.display = ''; verGet.classList.add('btn-primary'); }
-            toast(`Update available: ${info.latest}`);
+            toast(I18n.t('updates.toastAvailable', { v: info.latest }));
           } else {
-            status.textContent = 'You are on the latest version.';
+            status.textContent = I18n.t('updates.latest');
             if (verGet) { verGet.style.display = 'none'; }
           }
         });
@@ -1680,7 +1769,7 @@
     if (supCopy) {
       supCopy.addEventListener('click', () => {
         navigator.clipboard.writeText(SUPPORT_EMAIL).then(() => {
-          toast('Email address copied');
+          toast(I18n.t('toast.mailCopied'));
         });
       });
     }
@@ -1705,24 +1794,47 @@
   }
 
   function bind() {
-    $('#btn-search').addEventListener('click', () => {
-      if (ui.searching) { closeSearch(); } else { openSearch(); }
+    $('#search').addEventListener('submit', e => {
+      e.preventDefault();
+      runWebSearch($('#search-input').value, false);
     });
 
     $('#search-input').addEventListener('input', e => {
       ui.searchTerm = e.target.value.trim();
       applyTheme();
       renderGrid();
+      requestSuggestions(e.target.value);
     });
+
+    $('#search-input').addEventListener('blur', () => {
+      setTimeout(hideSuggestions, 120);
+    });
+    $('#search-input').addEventListener('focus', e => {
+      if (e.target.value.trim()) { requestSuggestions(e.target.value); }
+    });
+
     $('#search-input').addEventListener('keydown', e => {
-      if (e.key === 'Escape') { closeSearch(); }
+      if (e.key === 'Escape') {
+        if (suggestions.length) { hideSuggestions(); return; }
+        if (ui.searchTerm) { clearSearch(); } else { e.target.blur(); }
+        return;
+      }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (moveSuggestion(e.key === 'ArrowDown' ? 1 : -1)) { e.preventDefault(); }
+        return;
+      }
       if (e.key === 'Enter') {
-        const url = firstResult();
-        if (url) { openUrl(url, e.ctrlKey || e.metaKey); }
+        e.preventDefault();
+
+        const picked = suggestIndex >= 0 ? suggestions[suggestIndex] : e.target.value;
+        hideSuggestions();
+        runWebSearch(picked, e.ctrlKey || e.metaKey);
       }
     });
-    $('#search-overlay').addEventListener('mousedown', e => {
-      if (!e.target.closest('#search-bar')) { closeSearch(); }
+
+    $('#search-clear').addEventListener('click', () => {
+      clearSearch();
+      focusSearch();
     });
 
     $('#btn-data').addEventListener('click', showDataPanel);
@@ -1812,7 +1924,7 @@
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
       if (e.key === 'Escape') {
         if ($('#overlay').classList.contains('open')) { closeModal(); return; }
-        if (ui.searching) { closeSearch(); return; }
+        if (ui.searchTerm) { clearSearch(); return; }
         if (document.body.classList.contains('zen') ||
             document.body.classList.contains('zen-clock')) {
           document.body.classList.remove('zen');
@@ -1824,9 +1936,10 @@
         return;
       }
       if (typing) { return; }
+
       if (e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
         e.preventDefault();
-        openSearch();
+        focusSearch();
       }
     });
 
@@ -1854,9 +1967,10 @@
   function showUpdateBanner(info) {
     const el = $('#update-banner');
     if (!el) { return; }
-    $('#ub-title').textContent = `Update available - version ${info.latest}`;
-    $('#ub-sub').textContent =
-      `You are on ${info.current}. Open the repo to download the new version.`;
+    $('#ub-title').textContent = I18n.t('updates.bannerTitle', { v: info.latest });
+    $('#ub-sub').textContent = I18n.t('updates.bannerSub', { cur: info.current });
+    $('#ub-later').textContent = I18n.t('updates.later');
+    $('#ub-get').textContent = I18n.t('updates.get');
     el.classList.add('open');
 
     $('#ub-get').addEventListener('click', () => {
@@ -1878,6 +1992,41 @@
   }
 
   let clampClockIntoView = () => {};
+
+  function writeClockPosition(root, s) {
+    const ax = s.clockAnchorX || 'center';
+    const ay = s.clockAnchorY || 'top';
+    const ox = num(s.clockOffsetX, 0);
+    const oy = num(s.clockOffsetY, 60);
+
+    if (ax === 'right') {
+      root.style.setProperty('--clock-left', 'auto');
+      root.style.setProperty('--clock-right', `${ox}px`);
+      root.style.setProperty('--clock-tx', '0');
+    } else if (ax === 'left') {
+      root.style.setProperty('--clock-left', `${ox}px`);
+      root.style.setProperty('--clock-right', 'auto');
+      root.style.setProperty('--clock-tx', '0');
+    } else {
+      root.style.setProperty('--clock-left', `calc(50% + ${ox}px)`);
+      root.style.setProperty('--clock-right', 'auto');
+      root.style.setProperty('--clock-tx', '-50%');
+    }
+
+    if (ay === 'bottom') {
+      root.style.setProperty('--clock-top', 'auto');
+      root.style.setProperty('--clock-bottom', `${oy}px`);
+      root.style.setProperty('--clock-ty', '0');
+    } else if (ay === 'top') {
+      root.style.setProperty('--clock-top', `${oy}px`);
+      root.style.setProperty('--clock-bottom', 'auto');
+      root.style.setProperty('--clock-ty', '0');
+    } else {
+      root.style.setProperty('--clock-top', `calc(50% + ${oy}px)`);
+      root.style.setProperty('--clock-bottom', 'auto');
+      root.style.setProperty('--clock-ty', '-50%');
+    }
+  }
 
   const CLOCK_MIN_SCALE = 0.35;
   const CLOCK_MAX_SCALE = 3;
@@ -2029,6 +2178,105 @@
     glassRow.appendChild(tog);
     wrap.appendChild(glassRow);
 
+    section('Shadow');
+
+    const shadowRow = document.createElement('div');
+    shadowRow.className = 'clock-row';
+    const shadowLabel = document.createElement('span');
+    shadowLabel.textContent = 'Drop shadow';
+    const shadowTog = document.createElement('button');
+    shadowTog.className = `toggle${st.clockShadow === false ? '' : ' on'}`;
+    shadowTog.addEventListener('click', () => {
+      const next = Store.state.settings.clockShadow === false;
+      Store.setSetting('clockShadow', next);
+      shadowTog.classList.toggle('on', next);
+      shadowFields.classList.toggle('off', !next);
+    });
+    shadowRow.appendChild(shadowLabel);
+    shadowRow.appendChild(shadowTog);
+    wrap.appendChild(shadowRow);
+
+    const shadowFields = document.createElement('div');
+    shadowFields.className = `clock-shadow${st.clockShadow === false ? ' off' : ''}`;
+
+    function slider(key, label, min, max, step, unit, fallback) {
+      const row = document.createElement('label');
+      row.className = 'clock-slider';
+      const head = document.createElement('span');
+      const name = document.createElement('span');
+      name.textContent = label;
+      const out = document.createElement('b');
+      const value = () => num(Store.state.settings[key], fallback);
+      out.textContent = `${value()}${unit}`;
+      head.appendChild(name);
+      head.appendChild(out);
+
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = min;
+      input.max = max;
+      input.step = step;
+      input.value = value();
+      input.addEventListener('input', () => {
+        const v = parseFloat(input.value);
+        Store.setSetting(key, v);
+        out.textContent = `${v}${unit}`;
+      });
+
+      row.appendChild(head);
+      row.appendChild(input);
+      shadowFields.appendChild(row);
+      return input;
+    }
+
+    const colourRow = document.createElement('label');
+    colourRow.className = 'clock-slider';
+    const colourHead = document.createElement('span');
+    colourHead.innerHTML = '<span>Colour</span>';
+    const shadowSwatch = document.createElement('input');
+    shadowSwatch.type = 'color';
+    shadowSwatch.className = 'clock-swatch';
+    shadowSwatch.value = st.clockShadowColor || '#000000';
+    shadowSwatch.addEventListener('input', () => {
+      Store.setSetting('clockShadowColor', shadowSwatch.value);
+    });
+    colourHead.appendChild(shadowSwatch);
+    colourRow.appendChild(colourHead);
+    shadowFields.appendChild(colourRow);
+
+    const angleInput = slider('clockShadowAngle', 'Direction', 0, 360, 1, '\u00B0', 90);
+    const distInput = slider('clockShadowDistance', 'Distance', 0, 40, 1, 'px', 6);
+    const blurInput = slider('clockShadowBlur', 'Blur', 0, 60, 1, 'px', 18);
+    const opacityInput = slider('clockShadowOpacity', 'Opacity', 0, 1, 0.05, '', 0.45);
+
+    const shadowReset = document.createElement('button');
+    shadowReset.className = 'btn btn-sm';
+    shadowReset.textContent = 'Reset shadow';
+    shadowReset.addEventListener('click', () => {
+      resetClock(CLOCK_SHADOW_KEYS);
+      const d = Store.defaultSettings();
+      shadowTog.classList.toggle('on', d.clockShadow !== false);
+      shadowFields.classList.toggle('off', d.clockShadow === false);
+      shadowSwatch.value = d.clockShadowColor;
+      angleInput.value = d.clockShadowAngle;
+      distInput.value = d.clockShadowDistance;
+      blurInput.value = d.clockShadowBlur;
+      opacityInput.value = d.clockShadowOpacity;
+
+      shadowFields.querySelectorAll('.clock-slider').forEach(row => {
+        const input = row.querySelector('input[type=range]');
+        const out = row.querySelector('b');
+        if (input && out) { out.textContent = out.textContent.replace(/^[\d.]+/, input.value); }
+      });
+    });
+
+    const resetRow = document.createElement('div');
+    resetRow.className = 'clock-colours';
+    resetRow.appendChild(shadowReset);
+    shadowFields.appendChild(resetRow);
+
+    wrap.appendChild(shadowFields);
+
     section('Reset');
     const resets = document.createElement('div');
     resets.className = 'clock-colours';
@@ -2038,7 +2286,7 @@
     toHome.textContent = 'Position';
     toHome.title = 'Move the clock back to its default place';
     toHome.addEventListener('click', () => {
-      resetClock(['clockX', 'clockY']);
+      resetClock(CLOCK_POSITION_KEYS);
       refreshClockGlass();
     });
 
@@ -2085,7 +2333,20 @@
 
   const CLOCK_KEYS = [
     'clockFont', 'clockColorMode', 'clockColor', 'clockGlass',
-    'clockScale', 'clockStretch', 'clockX', 'clockY'
+    'clockScale', 'clockStretch', 'clockX', 'clockY',
+    'clockAnchorX', 'clockAnchorY', 'clockOffsetX', 'clockOffsetY',
+    'clockShadow', 'clockShadowColor', 'clockShadowAngle',
+    'clockShadowDistance', 'clockShadowBlur', 'clockShadowOpacity'
+  ];
+
+  const CLOCK_POSITION_KEYS = [
+    'clockAnchorX', 'clockAnchorY', 'clockOffsetX', 'clockOffsetY',
+    'clockX', 'clockY'
+  ];
+
+  const CLOCK_SHADOW_KEYS = [
+    'clockShadow', 'clockShadowColor', 'clockShadowAngle',
+    'clockShadowDistance', 'clockShadowBlur', 'clockShadowOpacity'
   ];
 
   function resetClock(keys) {
@@ -2146,21 +2407,37 @@
       return { x: box.left + box.width / 2, y: box.top + box.height / 2, box };
     }
 
-    function commitPosition(cx, cy) {
+    function commitPosition(left, top) {
       const box = host.getBoundingClientRect();
-      const padX = (box.width / 2) / window.innerWidth * 100;
-      const padY = (box.height / 2) / window.innerHeight * 100;
-      const x = clamp(cx / window.innerWidth * 100, padX, 100 - padX);
-      const y = clamp(cy / window.innerHeight * 100, padY, 100 - padY);
-      document.documentElement.style.setProperty('--clock-x', x);
-      document.documentElement.style.setProperty('--clock-y', y);
-      return { x, y };
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const x = clamp(left, 0, Math.max(0, vw - box.width));
+      const y = clamp(top, 0, Math.max(0, vh - box.height));
+      const midX = x + box.width / 2;
+      const midY = y + box.height / 2;
+
+      let anchorX = 'center';
+      let offsetX = Math.round(midX - vw / 2);
+      if (midX < vw / 3) { anchorX = 'left'; offsetX = Math.round(x); }
+      else if (midX > vw * 2 / 3) { anchorX = 'right'; offsetX = Math.round(vw - (x + box.width)); }
+
+      let anchorY = 'center';
+      let offsetY = Math.round(midY - vh / 2);
+      if (midY < vh / 3) { anchorY = 'top'; offsetY = Math.round(y); }
+      else if (midY > vh * 2 / 3) { anchorY = 'bottom'; offsetY = Math.round(vh - (y + box.height)); }
+
+      const at = {
+        clockAnchorX: anchorX, clockAnchorY: anchorY,
+        clockOffsetX: offsetX, clockOffsetY: offsetY
+      };
+      writeClockPosition(document.documentElement, at);
+      return at;
     }
 
     host.addEventListener('pointerdown', e => {
       if (e.button !== 0 || e.target === gripV || e.target === gripH) { return; }
-      const c = centre();
-      drag = { kind: 'move', dx: e.clientX - c.x, dy: e.clientY - c.y, moved: false };
+      const box = host.getBoundingClientRect();
+      drag = { kind: 'move', dx: e.clientX - box.left, dy: e.clientY - box.top, moved: false };
       host.setPointerCapture(e.pointerId);
       host.classList.add('dragging');
       document.body.classList.add('clock-dragging');
@@ -2213,18 +2490,20 @@
 
     function onUp() {
       if (!drag) { return; }
+      function saveAt(at) {
+        Store.setSetting('clockAnchorX', at.clockAnchorX);
+        Store.setSetting('clockAnchorY', at.clockAnchorY);
+        Store.setSetting('clockOffsetX', at.clockOffsetX);
+        Store.setSetting('clockOffsetY', at.clockOffsetY);
+      }
+
       if (drag.kind === 'move') {
-        if (drag.moved && drag.last) {
-          Store.setSetting('clockX', drag.last.x);
-          Store.setSetting('clockY', drag.last.y);
-        }
+        if (drag.moved && drag.last) { saveAt(drag.last); }
       } else if (typeof drag.value === 'number') {
         Store.setSetting(drag.kind === 'stretch' ? 'clockStretch' : 'clockScale', drag.value);
 
-        const c = centre();
-        const at = commitPosition(c.x, c.y);
-        Store.setSetting('clockX', at.x);
-        Store.setSetting('clockY', at.y);
+        const box = host.getBoundingClientRect();
+        saveAt(commitPosition(box.left, box.top));
       }
       drag = null;
       host.classList.remove('dragging');
@@ -2242,8 +2521,26 @@
       if (drag) { return; }
       const box = host.getBoundingClientRect();
       if (!box.width) { return; }
-      commitPosition(box.left + box.width / 2, box.top + box.height / 2);
+
+      const overflows = box.left < 0 || box.top < 0 ||
+        box.right > window.innerWidth || box.bottom > window.innerHeight;
+      if (overflows) { commitPosition(box.left, box.top); }
     };
+
+    if (Store.state.settings.clockNeedsAnchor) {
+      const s = Store.state.settings;
+      const box = host.getBoundingClientRect();
+      if (box.width) {
+        const left = num(s.clockX, 50) / 100 * window.innerWidth - box.width / 2;
+        const top = num(s.clockY, 10) / 100 * window.innerHeight - box.height / 2;
+        const at = commitPosition(left, top);
+        Store.setSetting('clockAnchorX', at.clockAnchorX);
+        Store.setSetting('clockAnchorY', at.clockAnchorY);
+        Store.setSetting('clockOffsetX', at.clockOffsetX);
+        Store.setSetting('clockOffsetY', at.clockOffsetY);
+      }
+      Store.setSetting('clockNeedsAnchor', false);
+    }
 
     window.addEventListener('resize', clampClockIntoView);
     clampClockIntoView();
@@ -2288,6 +2585,7 @@
 
   (async () => {
     await Store.load();
+    I18n.setLanguage(Store.state.settings.language);
     Store.subscribe(render);
     bind();
     startClock();

@@ -68,7 +68,32 @@ async function fetchTitle(url) {
   }
 }
 
+var SUGGEST_URL = 'https://suggestqueries.google.com/complete/search?client=firefox&q=';
+
+async function fetchSuggestions(query) {
+  var controller = new AbortController();
+  var timer = setTimeout(function () { controller.abort(); }, 4000);
+  try {
+    var r = await fetch(SUGGEST_URL + encodeURIComponent(query), {
+      signal: controller.signal,
+      credentials: 'omit'
+    });
+    clearTimeout(timer);
+    if (!r.ok) { return []; }
+    var data = JSON.parse(await r.text());
+
+    return Array.isArray(data) && Array.isArray(data[1]) ? data[1].slice(0, 8) : [];
+  } catch (e) {
+    clearTimeout(timer);
+    return [];
+  }
+}
+
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (msg && msg.type === 'suggest') {
+    fetchSuggestions(msg.q).then(function (items) { sendResponse({ items: items }); });
+    return true;
+  }
   if (msg && msg.type === 'fetchTitle') {
     fetchTitle(msg.url).then(function (title) { sendResponse({ title: title }); });
     return true;
