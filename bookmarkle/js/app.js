@@ -1579,7 +1579,6 @@
       ['general', I18n.t('nav.general'), 'gear'],
       ['account', I18n.t('nav.account'), 'user'],
       ['language', I18n.t('nav.language'), 'globe'],
-      ['updates', I18n.t('nav.updates'), 'download'],
       ['support', I18n.t('nav.support'), 'bug']
     ];
     host.innerHTML =
@@ -1623,10 +1622,6 @@
       return `<h1>${I18n.t('account.h1')}</h1><div class="settings-rule"></div><div class="group"><div class="group-title">${I18n.t('account.device')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.local')}</div><div class="row-sub">${I18n.t('account.localSub')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.saved')}</div><div class="row-sub">${st.pages.length} ${I18n.t('account.pages')} &middot; ${boards} ${I18n.t('account.boards')} &middot; ${links} ${I18n.t('account.bookmarks')} &middot; ${st.wallpapers.user.length} ${I18n.t('account.wallpapers')}</div></div></div></div><div class="group"><div class="group-title">${I18n.t('account.data')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.download')}</div><div class="row-sub">${I18n.t('account.downloadSub')}</div></div><button class="btn" id="set-export">${I18n.t('account.downloadBtn')}</button></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.import')}</div><div class="row-sub">${I18n.t('account.importSub')}</div></div><button class="btn" id="set-import">${I18n.t('account.importBtn')}</button></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.reset')}</div><div class="row-sub">${I18n.t('account.resetSub')}</div></div><button class="btn btn-danger" id="set-reset">${I18n.t('account.resetBtn')}</button></div></div><div class="group"><div class="group-title">${I18n.t('account.chrome')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('account.chromeImport')}</div><div class="row-sub">${I18n.t('account.chromeSub')} ${I18n.t('account.chromeBoard', { board: CHROME_BOARD_TITLE })}</div></div><button class="btn" id="set-chrome-bm">${I18n.t('account.importBtn')}</button></div></div><input type="file" id="set-file" accept="application/json,.json" hidden>`;
     }
 
-    if (settingsTab === 'updates') {
-      return `<h1>${I18n.t('updates.h1')}</h1><div class="settings-rule"></div>` +
-        `<div class="group"><div class="group-title">${I18n.t('updates.version')}</div><div class="row"><div class="row-text"><div class="row-title">Bookmarkle ${esc(window.UpdateCheck ? UpdateCheck.currentVersion() : '')}</div><div class="row-sub" id="ver-status">${I18n.t('updates.checkSub')}</div></div><button class="btn btn-sm" id="ver-get" style="display:none">${I18n.t('updates.download')}</button><button class="btn btn-sm" id="ver-check">${I18n.t('updates.check')}</button></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('updates.project')}</div><div class="row-sub">${I18n.t('updates.projectSub')}</div></div><button class="btn btn-sm" id="ver-repo">${I18n.t('updates.openGithub')}</button></div></div>`;
-    }
     if (settingsTab === 'language') {
       const langs = [
         ['auto', 'Automatic', 'Browser language'],
@@ -1654,7 +1649,7 @@
   }).join('')}</div>`;
     }
 
-    return `<h1>${I18n.t('support.h1')}</h1><div class="settings-rule"></div><div class="group"><div class="group-title">${I18n.t('support.about')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.developer')}</div><div class="row-sub">Taha Anjum &middot; @tahahanjum</div></div><button class="btn btn-sm" id="dev-github">${I18n.t('support.github')}</button></div></div><div class="group"><div class="group-title">${I18n.t('support.report')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.bug')}</div><div class="row-sub">${I18n.t('support.bugSub', { mail: `<a class="support-mail" href="mailto:${SUPPORT_EMAIL}?subject=Bookmarkle%20issue%20report">${SUPPORT_EMAIL}</a>` })}</div></div><button class="btn btn-sm" id="sup-copy">${I18n.t('support.copyMail')}</button></div></div><div class="group"><div class="group-title">${I18n.t('support.keyboard')}</div><div class="row"><div class="row-text"><div class="row-title">/ &middot; Ctrl+K</div><div class="row-sub">${I18n.t('support.kbSearch')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Esc</div><div class="row-sub">${I18n.t('support.kbEsc')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Ctrl+Shift+Y</div><div class="row-sub">${I18n.t('support.kbSave')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbRenameKey')}</div><div class="row-sub">${I18n.t('support.kbRename')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbMenuKey')}</div><div class="row-sub">${I18n.t('support.kbMenu')}</div></div></div></div><div class="group"><div class="group-title">${I18n.t('support.tips')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipDrag')}</div><div class="row-sub">${I18n.t('support.tipDragSub')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipWall')}</div><div class="row-sub">${I18n.t('support.tipWallSub')}</div></div></div></div>`;
+    return `<h1>${I18n.t('support.h1')}</h1><div class="settings-rule"></div><div class="group"><div class="group-title">${I18n.t('support.about')}</div><div class="row"><div class="row-text"><div class="row-title">Bookmarkle ${esc(chrome.runtime.getManifest().version)}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.developer')}</div><div class="row-sub">Taha Anjum &middot; @tahahanjum</div></div><button class="btn btn-sm" id="dev-github">${I18n.t('support.github')}</button></div></div><div class="group"><div class="group-title">${I18n.t('support.report')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.bug')}</div><div class="row-sub">${I18n.t('support.bugSub', { mail: `<a class="support-mail" href="mailto:${SUPPORT_EMAIL}?subject=Bookmarkle%20issue%20report">${SUPPORT_EMAIL}</a>` })}</div></div><button class="btn btn-sm" id="sup-copy">${I18n.t('support.copyMail')}</button></div></div><div class="group"><div class="group-title">${I18n.t('support.keyboard')}</div><div class="row"><div class="row-text"><div class="row-title">/ &middot; Ctrl+K</div><div class="row-sub">${I18n.t('support.kbSearch')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Esc</div><div class="row-sub">${I18n.t('support.kbEsc')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Ctrl+Shift+Y</div><div class="row-sub">${I18n.t('support.kbSave')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbRenameKey')}</div><div class="row-sub">${I18n.t('support.kbRename')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbMenuKey')}</div><div class="row-sub">${I18n.t('support.kbMenu')}</div></div></div></div><div class="group"><div class="group-title">${I18n.t('support.tips')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipDrag')}</div><div class="row-sub">${I18n.t('support.tipDragSub')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipWall')}</div><div class="row-sub">${I18n.t('support.tipWallSub')}</div></div></div></div>`;
   }
 
   function wireSettings(host) {
@@ -1729,41 +1724,6 @@
         renderSettings();
       });
     });
-
-    const verRepo = $('#ver-repo', host);
-    if (verRepo) { verRepo.addEventListener('click', () => openRepo()); }
-
-    const verGet = $('#ver-get', host);
-    if (verGet) { verGet.addEventListener('click', () => openRepo()); }
-
-    const verCheck = $('#ver-check', host);
-    if (verCheck) {
-      UpdateCheck.check(false).then(info => {
-        if (info.latest && UpdateCheck.compare(info.latest, info.current) > 0) {
-          $('#ver-status', host).textContent = I18n.t('updates.available', { v: info.latest });
-          if (verGet) { verGet.style.display = ''; verGet.classList.add('btn-primary'); }
-        }
-      });
-
-      verCheck.addEventListener('click', () => {
-        const status = $('#ver-status', host);
-        verCheck.disabled = true;
-        status.textContent = I18n.t('updates.checking');
-        UpdateCheck.check(true).then(info => {
-          verCheck.disabled = false;
-          if (info.error) {
-            status.textContent = I18n.t('updates.unreachable', { err: info.error });
-          } else if (info.latest && UpdateCheck.compare(info.latest, info.current) > 0) {
-            status.textContent = I18n.t('updates.available', { v: info.latest });
-            if (verGet) { verGet.style.display = ''; verGet.classList.add('btn-primary'); }
-            toast(I18n.t('updates.toastAvailable', { v: info.latest }));
-          } else {
-            status.textContent = I18n.t('updates.latest');
-            if (verGet) { verGet.style.display = 'none'; }
-          }
-        });
-      });
-    }
 
     const devLink = $('#dev-github', host);
     if (devLink) { devLink.addEventListener('click', () => openRepo(GITHUB_PROFILE)); }
@@ -1958,7 +1918,7 @@
 
   const GITHUB_PROFILE = 'https://github.com/tahahanjum';
 
-  function openRepo(url = UpdateCheck.REPO_URL) {
+  function openRepo(url = GITHUB_PROFILE) {
     try {
       if (chrome.tabs?.create) {
         chrome.tabs.create({ url });
@@ -1966,33 +1926,6 @@
       }
     } catch {  }
     window.open(url, '_blank', 'noopener');
-  }
-
-  function showUpdateBanner(info) {
-    const el = $('#update-banner');
-    if (!el) { return; }
-    $('#ub-title').textContent = I18n.t('updates.bannerTitle', { v: info.latest });
-    $('#ub-sub').textContent = I18n.t('updates.bannerSub', { cur: info.current });
-    $('#ub-later').textContent = I18n.t('updates.later');
-    $('#ub-get').textContent = I18n.t('updates.get');
-    el.classList.add('open');
-
-    $('#ub-get').addEventListener('click', () => {
-      openRepo();
-      UpdateCheck.dismiss(info.latest);
-      el.classList.remove('open');
-    });
-    $('#ub-later').addEventListener('click', () => {
-      UpdateCheck.dismiss(info.latest);
-      el.classList.remove('open');
-    });
-  }
-
-  function runUpdateCheck() {
-    if (!window.UpdateCheck) { return; }
-    UpdateCheck.pending().then(info => {
-      if (info) { showUpdateBanner(info); }
-    });
   }
 
   let clampClockIntoView = () => {};
@@ -2602,7 +2535,5 @@
     await calibrateAllClockFonts();
     render();
     refreshClockGlass();
-
-    setTimeout(runUpdateCheck, 1200);
   })();
 })();

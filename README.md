@@ -30,6 +30,9 @@ Download the new version, replace the folder, then press **Reload** (↻) on the
 BookMarkle card at `chrome://extensions`. Your boards and bookmarks are stored
 separately, so they survive updates.
 
+BookMarkle does not check for updates or notify you about them. It never contacts
+GitHub on its own — checking back here is entirely up to you.
+
 ---
 
 ## Getting started
@@ -97,6 +100,8 @@ Full documentation is in [`bookmarkle/README.md`](bookmarkle/README.md).
 - The search bar is the one place where what you type leaves your machine. Typing sends
   the query to Google to get suggestions back, the same as typing in the address bar
   does. Nothing is sent until you type, and nothing about your bookmarks is included.
+- No update checks. The extension never phones home to see whether a newer version
+  exists, so nothing is sent on startup and no notification is ever shown.
 - No analytics, no accounts, no telemetry.
 
 ---
