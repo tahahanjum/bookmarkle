@@ -1021,6 +1021,8 @@ body.searching #search-clear { display: grid; }
 }
 #search-suggest.open { display: flex; }
 
+#search:has(#search-suggest.open) { z-index: 46; }
+
 .suggest-row {
   display: flex;
   align-items: center;
