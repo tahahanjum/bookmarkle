@@ -1654,7 +1654,7 @@
   }).join('')}</div>`;
     }
 
-    return `<h1>${I18n.t('support.h1')}</h1><div class="settings-rule"></div><div class="group"><div class="group-title">${I18n.t('support.report')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.bug')}</div><div class="row-sub">${I18n.t('support.bugSub', { mail: `<a class="support-mail" href="mailto:${SUPPORT_EMAIL}?subject=Bookmarkle%20issue%20report">${SUPPORT_EMAIL}</a>` })}</div></div><button class="btn btn-sm" id="sup-copy">${I18n.t('support.copyMail')}</button></div></div><div class="group"><div class="group-title">${I18n.t('support.keyboard')}</div><div class="row"><div class="row-text"><div class="row-title">/ &middot; Ctrl+K</div><div class="row-sub">${I18n.t('support.kbSearch')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Esc</div><div class="row-sub">${I18n.t('support.kbEsc')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Ctrl+Shift+Y</div><div class="row-sub">${I18n.t('support.kbSave')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbRenameKey')}</div><div class="row-sub">${I18n.t('support.kbRename')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbMenuKey')}</div><div class="row-sub">${I18n.t('support.kbMenu')}</div></div></div></div><div class="group"><div class="group-title">${I18n.t('support.tips')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipDrag')}</div><div class="row-sub">${I18n.t('support.tipDragSub')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipWall')}</div><div class="row-sub">${I18n.t('support.tipWallSub')}</div></div></div></div>`;
+    return `<h1>${I18n.t('support.h1')}</h1><div class="settings-rule"></div><div class="group"><div class="group-title">${I18n.t('support.about')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.developer')}</div><div class="row-sub">Taha Anjum &middot; @tahahanjum</div></div><button class="btn btn-sm" id="dev-github">${I18n.t('support.github')}</button></div></div><div class="group"><div class="group-title">${I18n.t('support.report')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.bug')}</div><div class="row-sub">${I18n.t('support.bugSub', { mail: `<a class="support-mail" href="mailto:${SUPPORT_EMAIL}?subject=Bookmarkle%20issue%20report">${SUPPORT_EMAIL}</a>` })}</div></div><button class="btn btn-sm" id="sup-copy">${I18n.t('support.copyMail')}</button></div></div><div class="group"><div class="group-title">${I18n.t('support.keyboard')}</div><div class="row"><div class="row-text"><div class="row-title">/ &middot; Ctrl+K</div><div class="row-sub">${I18n.t('support.kbSearch')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Esc</div><div class="row-sub">${I18n.t('support.kbEsc')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">Ctrl+Shift+Y</div><div class="row-sub">${I18n.t('support.kbSave')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbRenameKey')}</div><div class="row-sub">${I18n.t('support.kbRename')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.kbMenuKey')}</div><div class="row-sub">${I18n.t('support.kbMenu')}</div></div></div></div><div class="group"><div class="group-title">${I18n.t('support.tips')}</div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipDrag')}</div><div class="row-sub">${I18n.t('support.tipDragSub')}</div></div></div><div class="row"><div class="row-text"><div class="row-title">${I18n.t('support.tipWall')}</div><div class="row-sub">${I18n.t('support.tipWallSub')}</div></div></div></div>`;
   }
 
   function wireSettings(host) {
@@ -1731,10 +1731,10 @@
     });
 
     const verRepo = $('#ver-repo', host);
-    if (verRepo) { verRepo.addEventListener('click', openRepo); }
+    if (verRepo) { verRepo.addEventListener('click', () => openRepo()); }
 
     const verGet = $('#ver-get', host);
-    if (verGet) { verGet.addEventListener('click', openRepo); }
+    if (verGet) { verGet.addEventListener('click', () => openRepo()); }
 
     const verCheck = $('#ver-check', host);
     if (verCheck) {
@@ -1764,6 +1764,9 @@
         });
       });
     }
+
+    const devLink = $('#dev-github', host);
+    if (devLink) { devLink.addEventListener('click', () => openRepo(GITHUB_PROFILE)); }
 
     const supCopy = $('#sup-copy', host);
     if (supCopy) {
@@ -1953,8 +1956,9 @@
     });
   }
 
-  function openRepo() {
-    const url = UpdateCheck.REPO_URL;
+  const GITHUB_PROFILE = 'https://github.com/tahahanjum';
+
+  function openRepo(url = UpdateCheck.REPO_URL) {
     try {
       if (chrome.tabs?.create) {
         chrome.tabs.create({ url });
@@ -2519,6 +2523,8 @@
     clampClockIntoView = () => {
       refreshClockGlass();
       if (drag) { return; }
+
+      if (!window.innerWidth || !window.innerHeight) { return; }
       const box = host.getBoundingClientRect();
       if (!box.width) { return; }
 
@@ -2527,7 +2533,7 @@
       if (overflows) { commitPosition(box.left, box.top); }
     };
 
-    if (Store.state.settings.clockNeedsAnchor) {
+    if (Store.state.settings.clockNeedsAnchor && window.innerWidth && window.innerHeight) {
       const s = Store.state.settings;
       const box = host.getBoundingClientRect();
       if (box.width) {

@@ -212,7 +212,7 @@ body.zen-clock #zen-exit { display: flex; }
 
   left: var(--clock-left, 50%);
   right: var(--clock-right, auto);
-  top: var(--clock-top, 60px);
+  top: var(--clock-top, 0px);
   bottom: var(--clock-bottom, auto);
   transform: translate(var(--clock-tx, -50%), var(--clock-ty, 0));
   z-index: 12;

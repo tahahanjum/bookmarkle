@@ -19,7 +19,7 @@
       clockAnchorX: 'center',
       clockAnchorY: 'top',
       clockOffsetX: 0,
-      clockOffsetY: 60,
+      clockOffsetY: 0,
       clockScale: 1,
 
       clockStretch: 1,
