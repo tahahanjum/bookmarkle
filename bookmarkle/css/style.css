@@ -107,9 +107,11 @@ button { cursor: pointer; border: none; background: none; }
 
 body.zen #topbar,
 body.zen #grid,
+body.zen #btn-clock-edit,
 body.zen #wallpaper-btn { opacity: 0; pointer-events: none; }
 
 body.zen-clock #grid,
+body.zen-clock #btn-clock-edit,
 body.zen-clock #wallpaper-btn,
 body.zen-clock .pages-row,
 body.zen-clock #topbar-rule { opacity: 0; pointer-events: none; }
@@ -923,6 +925,15 @@ html[data-mode="light"] .rail-btn.accent:hover {
 #rail.grouped.expanded #rail-group { display: contents; }
 #rail .rail-toggle { display: none; }
 #rail.grouped .rail-toggle { display: grid; }
+
+#btn-clock-edit {
+  position: fixed;
+  left: 30px;
+  bottom: 95px;
+  z-index: 30;
+  transition: background 0.16s, transform 0.14s, opacity 0.3s;
+}
+#btn-clock-edit:hover { transform: scale(1.05); }
 
 #wallpaper-btn {
   position: fixed;
