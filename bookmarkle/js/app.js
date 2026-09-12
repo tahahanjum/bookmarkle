@@ -1944,6 +1944,8 @@
 
   let clampClockIntoView = () => {};
 
+  let snapClockHome = () => {};
+
   function writeClockPosition(root, s) {
     const ax = s.clockAnchorX || 'center';
     const ay = s.clockAnchorY || 'top';
@@ -2264,6 +2266,8 @@
     toHome.addEventListener('click', () => {
       resetClock(CLOCK_POSITION_KEYS);
       refreshClockGlass();
+
+      setTimeout(snapClockHome, 0);
     });
 
     const toDefaults = document.createElement('button');
@@ -2281,6 +2285,7 @@
       swatch.value = st2.clockColor || '#ffffff';
       tog.classList.toggle('on', !!st2.clockGlass);
       refreshClockGlass();
+      setTimeout(snapClockHome, 0);
     });
 
     resets.appendChild(toHome);
@@ -2391,12 +2396,26 @@
       return { x: box.left + box.width / 2, y: box.top + box.height / 2, box };
     }
 
+    function frameInsets() {
+      const box = host.getBoundingClientRect();
+      const f = hit.getBoundingClientRect();
+      if (!f.width) { return { top: 0, bottom: 0, left: 0, right: 0 }; }
+      return {
+        top: Math.max(0, f.top - box.top),
+        bottom: Math.max(0, box.bottom - f.bottom),
+        left: Math.max(0, f.left - box.left),
+        right: Math.max(0, box.right - f.right)
+      };
+    }
+
     function commitPosition(left, top) {
       const box = host.getBoundingClientRect();
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const x = clamp(left, 0, Math.max(0, vw - box.width));
-      const y = clamp(top, 0, Math.max(0, vh - box.height));
+
+      const ins = frameInsets();
+      const x = clamp(left, -ins.left, Math.max(-ins.left, vw - box.width + ins.right));
+      const y = clamp(top, -ins.top, Math.max(-ins.top, vh - box.height + ins.bottom));
       const midX = x + box.width / 2;
       const midY = y + box.height / 2;
 
@@ -2472,14 +2491,15 @@
       }
     }
 
+    function saveAt(at) {
+      Store.setSetting('clockAnchorX', at.clockAnchorX);
+      Store.setSetting('clockAnchorY', at.clockAnchorY);
+      Store.setSetting('clockOffsetX', at.clockOffsetX);
+      Store.setSetting('clockOffsetY', at.clockOffsetY);
+    }
+
     function onUp() {
       if (!drag) { return; }
-      function saveAt(at) {
-        Store.setSetting('clockAnchorX', at.clockAnchorX);
-        Store.setSetting('clockAnchorY', at.clockAnchorY);
-        Store.setSetting('clockOffsetX', at.clockOffsetX);
-        Store.setSetting('clockOffsetY', at.clockOffsetY);
-      }
 
       if (drag.kind === 'move') {
         if (drag.moved && drag.last) { saveAt(drag.last); }
@@ -2500,6 +2520,14 @@
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onUp);
 
+    snapClockHome = () => {
+      if (!window.innerWidth || !window.innerHeight) { return; }
+      refreshClockGlass();
+      const box = host.getBoundingClientRect();
+      if (!box.width) { return; }
+      saveAt(commitPosition(box.left, box.top - frameInsets().top));
+    };
+
     clampClockIntoView = () => {
       refreshClockGlass();
       if (drag) { return; }
@@ -2508,8 +2536,10 @@
       const box = host.getBoundingClientRect();
       if (!box.width) { return; }
 
-      const overflows = box.left < 0 || box.top < 0 ||
-        box.right > window.innerWidth || box.bottom > window.innerHeight;
+      const f = hit.getBoundingClientRect();
+      if (!f.width) { return; }
+      const overflows = f.left < -0.5 || f.top < -0.5 ||
+        f.right > window.innerWidth + 0.5 || f.bottom > window.innerHeight + 0.5;
       if (overflows) { commitPosition(box.left, box.top); }
     };
 
