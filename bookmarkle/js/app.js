@@ -13,6 +13,7 @@
     addStep: null,
     addingBoard: null,
     railExpanded: false,
+    clockEdit: false,
     wpOpen: false,
     wpCollapsed: {}
   };
@@ -225,6 +226,7 @@
     root.style.setProperty('--clock-ink',
       s.clockColorMode === 'custom' ? (s.clockColor || '#ffffff') : t.primary);
     root.setAttribute('data-clock-glass', s.clockGlass ? '1' : '0');
+    root.setAttribute('data-clock-edit', ui.clockEdit ? '1' : '0');
     writeClockShadow(root, s);
     writeClockAxes(root, s.clockStretch, s.clockFont);
 
@@ -1805,6 +1807,18 @@
     $('#btn-select').addEventListener('click', toggleSelect);
     $('#btn-settings').addEventListener('click', showSettings);
 
+    $('#btn-clock-edit').addEventListener('click', () => {
+      ui.clockEdit = !ui.clockEdit;
+      $('#btn-clock-edit').classList.toggle('on', ui.clockEdit);
+
+      if (!ui.clockEdit) { document.body.classList.remove('clock-hover', 'clock-menu'); }
+      applyTheme();
+      refreshClockGlass();
+      toast(ui.clockEdit
+        ? 'Clock unlocked - drag it, or use the grips to resize'
+        : 'Clock locked');
+    });
+
     $('#btn-private').addEventListener('click', () => {
       ui.private = !ui.private;
       $('#btn-private').classList.toggle('on', !!ui.private);
@@ -1970,6 +1984,8 @@
   const CLOCK_MIN_STRETCH = 0.6;
   const CLOCK_MAX_STRETCH = 2.6;
 
+  let inkCtx = null;
+
   function refreshClockGlass() {
     const host = $('#clock');
     const el = $('#clock-time');
@@ -2019,6 +2035,29 @@
     if (squeeze !== 1) {
       text.setAttribute('transform',
         `translate(${cx} ${cy}) scale(${squeeze} 1) translate(${-cx} ${-cy})`);
+    }
+
+    const hit = $('#clock-hit', host);
+    if (hit) {
+      const pad = 6;
+      let inkW = er.width;
+      let inkH = er.height;
+      try {
+        inkCtx ??= document.createElement('canvas').getContext('2d');
+        inkCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        const m = inkCtx.measureText(el.textContent);
+        const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+        const h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+
+        if (w > 0 && h > 0 && m.width > 0) {
+          inkW = w * (er.width / m.width);
+          inkH = h;
+        }
+      } catch {  }
+      hit.style.left = `${cx - inkW / 2 - pad}px`;
+      hit.style.top = `${cy - inkH / 2 - pad}px`;
+      hit.style.width = `${inkW + pad * 2}px`;
+      hit.style.height = `${inkH + pad * 2}px`;
     }
   }
 
@@ -2313,12 +2352,17 @@
       '</mask></defs></svg>';
     host.appendChild(defs);
 
+    const hit = document.createElement('div');
+    hit.id = 'clock-hit';
+    host.appendChild(hit);
+
     const glass = document.createElement('div');
     glass.id = 'clock-glass';
     glass.style.setProperty('--clock-glass-mask', 'url(#clock-glass-mask)');
     host.insertBefore(glass, host.firstChild);
 
     host.addEventListener('contextmenu', e => {
+      if (!ui.clockEdit) { return; }
       e.preventDefault();
       clockPropsMenu(e.clientX, e.clientY);
     });
@@ -2332,6 +2376,9 @@
 
     const gripV = grip('clock-grip-v');
     const gripH = grip('clock-grip-h');
+
+    hit.appendChild(gripV);
+    hit.appendChild(gripH);
     gripV.title = 'Drag to stretch';
     gripH.title = 'Drag to resize';
 
