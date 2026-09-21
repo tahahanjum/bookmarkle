@@ -450,15 +450,77 @@
     return Store.COLS;
   }
 
-  function matchesSearch(board) {
+  let searchIndex = null;
+
+  const EMPTY_BOARD_TEXT = 'No bookmarks yet.';
+  const EMPTY_SEARCH_TEXT = 'No matches in this board.';
+
+  function buildSearchIndex() {
+    const byId = new Map();
+    Store.activePage().columns.forEach(col => {
+      col.forEach(b => { byId.set(b.id, b); });
+    });
+    searchIndex = [];
+    $('#grid').querySelectorAll('.board').forEach(el => {
+      const board = byId.get(el.dataset.boardId);
+      if (!board) { return; }
+      const linkById = new Map(board.links.map(l => [l.id, l]));
+      const links = [];
+      el.querySelectorAll('.link').forEach(a => {
+        const l = linkById.get(a.dataset.linkId);
+        if (!l) { return; }
+        links.push({
+          el: a,
+          text: `${l.title || ''}\n${l.url || ''}\n${l.description || ''}`.toLowerCase()
+        });
+      });
+      searchIndex.push({ el, title: board.title.toLowerCase(), links });
+    });
+  }
+
+  let gridBuiltForSearch = false;
+
+  function startGridSearch() {
+    const grid = $('#grid');
+    if (grid.querySelector('.board.collapsed, .board-more')) {
+      renderGrid();
+      return;
+    }
+    grid.querySelectorAll('.board-empty').forEach(el => {
+      el.textContent = EMPTY_SEARCH_TEXT;
+    });
+    buildSearchIndex();
+    filterGridInPlace();
+  }
+
+  function endGridSearch() {
+    if (gridBuiltForSearch) {
+      renderGrid();
+      return;
+    }
+    searchIndex = null;
+    const grid = $('#grid');
+    grid.querySelectorAll('.hidden-by-search').forEach(el => {
+      el.classList.remove('hidden-by-search');
+    });
+    grid.querySelectorAll('.board-empty').forEach(el => {
+      el.textContent = EMPTY_BOARD_TEXT;
+    });
+  }
+
+  function filterGridInPlace() {
+    if (!searchIndex) { return; }
     const q = ui.searchTerm.toLowerCase();
-    if (!q) { return { board: true, links: null }; }
-    const titleHit = board.title.toLowerCase().includes(q);
-    const linkHits = board.links.filter(l =>
-      (l.title || '').toLowerCase().includes(q) ||
-      (l.url || '').toLowerCase().includes(q) ||
-      (l.description || '').toLowerCase().includes(q));
-    return { board: titleHit || linkHits.length > 0, links: titleHit ? null : linkHits };
+    searchIndex.forEach(b => {
+      const titleHit = b.title.includes(q);
+      let any = false;
+      b.links.forEach(l => {
+        const show = titleHit || l.text.includes(q);
+        l.el.classList.toggle('hidden-by-search', !show);
+        if (show) { any = true; }
+      });
+      b.el.classList.toggle('hidden-by-search', !(titleHit || any));
+    });
   }
 
   function renderGrid() {
@@ -467,6 +529,8 @@
     const n = visibleColumnCount();
     grid.style.gridTemplateColumns = `repeat(${n}, minmax(0, 1fr))`;
     grid.innerHTML = '';
+    searchIndex = null;
+    gridBuiltForSearch = !!ui.searchTerm;
 
     const buckets = [];
     let i;
@@ -481,9 +545,7 @@
       colEl.dataset.col = ri;
 
       items.forEach(item => {
-        const hit = matchesSearch(item.board);
-        if (ui.searchTerm && !hit.board) { return; }
-        colEl.appendChild(renderBoard(item.board, item.dataCol, hit.links));
+        colEl.appendChild(renderBoard(item.board, item.dataCol, null));
       });
 
       if (ui.addingBoard === ri) {
@@ -512,6 +574,11 @@
 
       grid.appendChild(colEl);
     });
+
+    if (ui.searchTerm) {
+      buildSearchIndex();
+      filterGridInPlace();
+    }
   }
 
   function renderAddBoardForm(col) {
@@ -575,7 +642,7 @@
     if (!links.length) {
       const empty = document.createElement('div');
       empty.className = 'board-empty';
-      empty.textContent = ui.searchTerm ? 'No matches in this board.' : 'No bookmarks yet.';
+      empty.textContent = ui.searchTerm ? EMPTY_SEARCH_TEXT : EMPTY_BOARD_TEXT;
       list.appendChild(empty);
     }
     el.appendChild(list);
@@ -1765,9 +1832,17 @@
     });
 
     $('#search-input').addEventListener('input', e => {
+      const wasSearching = !!ui.searchTerm;
       ui.searchTerm = e.target.value.trim();
-      applyTheme();
-      renderGrid();
+      const searching = !!ui.searchTerm;
+      document.body.classList.toggle('searching', searching);
+      if (searching && !wasSearching) {
+        startGridSearch();
+      } else if (!searching && wasSearching) {
+        endGridSearch();
+      } else if (searching) {
+        if (searchIndex) { filterGridInPlace(); } else { startGridSearch(); }
+      }
       requestSuggestions(e.target.value);
     });
 
