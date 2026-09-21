@@ -175,18 +175,34 @@
     }, 2600);
   }
 
-  function fetchTitle(url) {
-    const { promise, resolve } = Promise.withResolvers();
-    const timer = setTimeout(() => resolve(null), 9000);
-    const finish = title => { clearTimeout(timer); resolve(title); };
+  const TITLE_ACCESS = { origins: ['<all_urls>'] };
 
-    try {
-      chrome.runtime.sendMessage({ type: 'fetchTitle', url }, res => {
-        finish(chrome.runtime.lastError ? null : res?.title || null);
-      });
-    } catch {
-      finish(null);
-    }
+  function titleAccess(ask) {
+    if (!chrome.permissions?.request) { return Promise.resolve(true); }
+    if (!ask) { return chrome.permissions.contains(TITLE_ACCESS).catch(() => false); }
+    return chrome.permissions.request(TITLE_ACCESS).then(ok => {
+      if (!!Store.state.settings.titleAccessDeclined === ok) {
+        Store.setSetting('titleAccessDeclined', !ok);
+      }
+      return ok;
+    }, () => false);
+  }
+
+  function fetchTitle(url, { ask = true } = {}) {
+    const { promise, resolve } = Promise.withResolvers();
+    titleAccess(ask).then(ok => {
+      if (!ok) { resolve(null); return; }
+
+      const timer = setTimeout(() => resolve(null), 9000);
+      const finish = title => { clearTimeout(timer); resolve(title); };
+      try {
+        chrome.runtime.sendMessage({ type: 'fetchTitle', url }, res => {
+          finish(chrome.runtime.lastError ? null : res?.title || null);
+        });
+      } catch {
+        finish(null);
+      }
+    });
     return promise;
   }
 
@@ -860,7 +876,7 @@
           if (!url) { toast('That does not look like a URL', true); input.focus(); return; }
           btn.disabled = true;
           btn.textContent = 'Fetching title...';
-          fetchTitle(url).then(title => {
+          fetchTitle(url, { ask: !Store.state.settings.titleAccessDeclined }).then(title => {
             ui.addStep = {
               url,
               title: title || prettyNameFromUrl(url),
@@ -1010,16 +1026,19 @@
 
   function fetchAllTitles(board) {
     if (!board.links.length) { toast('This board is empty', true); return; }
-    toast(`Fetching ${board.links.length} titles...`);
-    let done = 0;
-    let changed = 0;
-    board.links.forEach(l => {
-      fetchTitle(l.url).then(title => {
-        done++;
-        if (title && title !== l.title) { Store.updateLink(board.id, l.id, { title }); changed++; }
-        if (done === board.links.length) {
-          toast(changed ? `Updated ${changed} title${changed > 1 ? 's' : ''}` : 'All titles were already current');
-        }
+    titleAccess(true).then(ok => {
+      if (!ok) { toast('Reading titles needs access to those sites', true); return; }
+      toast(`Fetching ${board.links.length} titles...`);
+      let done = 0;
+      let changed = 0;
+      board.links.forEach(l => {
+        fetchTitle(l.url, { ask: false }).then(title => {
+          done++;
+          if (title && title !== l.title) { Store.updateLink(board.id, l.id, { title }); changed++; }
+          if (done === board.links.length) {
+            toast(changed ? `Updated ${changed} title${changed > 1 ? 's' : ''}` : 'All titles were already current');
+          }
+        });
       });
     });
   }

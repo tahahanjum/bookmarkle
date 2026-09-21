@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "BookMarkle | Bookmark Manager",
   "short_name": "Bookmarkle",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "minimum_chrome_version": "119",
   "description": "Turn your new tab into beautiful boards of bookmarks, with wallpapers that theme the whole page.",
   "permissions": [
@@ -12,6 +12,9 @@
     "bookmarks"
   ],
   "host_permissions": [
+    "https://suggestqueries.google.com/*"
+  ],
+  "optional_host_permissions": [
     "<all_urls>"
   ],
   "background": {

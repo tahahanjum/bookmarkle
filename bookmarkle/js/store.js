@@ -37,6 +37,8 @@
       clockShadowOpacity: 0.45,
       groupTools: false,
       hideExtraBookmarks: false,
+
+      titleAccessDeclined: false,
       shortenTitles: true,
       openInNewTab: false,
       showDescriptions: true,

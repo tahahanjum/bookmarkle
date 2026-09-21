@@ -93,7 +93,9 @@ Full documentation is in [`bookmarkle/README.md`](bookmarkle/README.md).
   machine only.
 - The extension makes four kinds of outbound request, all of them triggered by
   something you did:
-  - fetching the **title** of a URL you are adding;
+  - fetching the **title** of a URL you are adding. That needs access to the
+    site, which Chrome asks for once, the first time; say no and bookmarks are
+    named from their address instead;
   - loading **favicons** from `google.com/s2/favicons`;
   - loading **wallpaper images** when you open the gallery or apply one;
   - fetching **search suggestions** from Google as you type in the search bar.
